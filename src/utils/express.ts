@@ -1,3 +1,5 @@
+import { PaginatedResponse, PaginationState } from "../types/Response";
+
 export const getErrorMessage = (error: unknown) => {
   let message: string;
 
@@ -12,4 +14,33 @@ export const getErrorMessage = (error: unknown) => {
   }
 
   return message;
+};
+
+export const getPaginatedResponse = <T>(
+  data: T[],
+  page: number,
+  limit: number,
+  totalData: number
+): PaginatedResponse<T> => {
+  const totalPages = Math.ceil(totalData / limit);
+  const startIndex = (page - 1) * limit + 1;
+  const endIndex = page * limit > totalData ? totalData : page * limit;
+
+  const paginationState: PaginationState = {
+    totalData,
+    dataPerpage: limit,
+    currentPage: page,
+    totalPages,
+    startIndex,
+    endIndex,
+    hasNextPage: page < totalData,
+    hasPrevPage: page > 1,
+  };
+
+  const paginatedResponse: PaginatedResponse<T> = {
+    paginationState,
+    data,
+  };
+
+  return paginatedResponse;
 };

@@ -51,9 +51,21 @@ export const login: RequestHandler = async (req, res) => {
       include: { profile: true },
     });
 
-    const newAccessToken = jwt.sign(updatedUser, process.env.JWT_ACCESS_TOKEN!!, {
-      expiresIn: "30m",
-    });
+    const newAccessToken = jwt.sign(
+      {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        isOauth: updatedUser.isOauth,
+        lastLogin: updatedUser.lastLogin,
+        profileId: updatedUser.profile?.id,
+      },
+      process.env.JWT_ACCESS_TOKEN!!,
+      {
+        expiresIn: "30m",
+      }
+    );
     const newRefreshToken = jwt.sign(updatedUser.id, process.env.JWT_REFRESH_TOKEN!!);
 
     res.cookie("jwt", newRefreshToken, {
