@@ -24,6 +24,7 @@ export const createNote: RequestHandler = async (req, res) => {
       hashedPassword = await bcrypt.hash(password, 10);
     }
 
+    // * Many to many relation itu otomatis nambakan note ke tag juga
     const newNote = await prisma.note.create({
       data: {
         userId: id,

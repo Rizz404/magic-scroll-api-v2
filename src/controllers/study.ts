@@ -7,7 +7,7 @@ export const createStudy: RequestHandler = async (req, res) => {
   try {
     const { name, description }: Study = req.body;
 
-    const newStudy = await prisma.tag.create({ data: { name, description } });
+    const newStudy = await prisma.study.create({ data: { name, description } });
 
     res.status(201).json({ message: "Create study successful", data: newStudy });
   } catch (error) {

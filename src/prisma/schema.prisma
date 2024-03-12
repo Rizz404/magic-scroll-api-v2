@@ -141,9 +141,14 @@ model Study {
   id          String   @id @default(cuid())
   name        String
   description String
+  image       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  notes       Note[]
+
+  notes Note[]
+
+  @@unique([name])
+  @@index([name])
 }
 
 enum Roles {
