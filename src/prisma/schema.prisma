@@ -68,8 +68,9 @@ model Note {
   studyId        String
   title          String
   content        String
-  thumbnailImage String
+  thumbnailImage String?
   attachments    String[]
+  isPrivate      Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -78,7 +79,7 @@ model Note {
   tags        Tag[]
   upvote      Upvote[]
   downvote    Downvote[]
-  PrivateNote PrivateNote?
+  privateNote PrivateNote?
 
   @@index([userId, studyId, title])
 }

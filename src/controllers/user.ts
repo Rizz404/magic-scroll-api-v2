@@ -25,7 +25,7 @@ export const getUsers: RequestHandler = async (req, res) => {
 export const getUserProfile: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user;
-    const user = await prisma.user.findUnique({ where: { id } });
+    const user = await prisma.user.findUnique({ where: { id }, include: { profile: true } });
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -57,7 +57,7 @@ export const updateUser: RequestHandler = async (req, res) => {
 
     const updatedUser = await prisma.user.update({
       where: { id },
-      data: { username, ...(isOauth !== false && { email }) },
+      data: { username, ...(isOauth === false && { email }) },
     });
 
     if (!updatedUser) {
@@ -82,16 +82,16 @@ export const updateUserProfile: RequestHandler = async (req, res) => {
       socialMedias,
     }: Profile = req.body;
 
-    const updatedUser = await prisma.profile.update({
+    const updatedUserProfile = await prisma.profile.update({
       where: { id: profileId },
       data: { firstName, lastName, profileImage: profileImageString, age, phone, socialMedias },
     });
 
-    if (!updatedUser) {
+    if (!updatedUserProfile) {
       return res.status(400).json({ message: "Something wrong when updating user" });
     }
 
-    res.json({ message: "Update profile successful", data: updatedUser });
+    res.json({ message: "Update profile successful", data: updatedUserProfile });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
   }
