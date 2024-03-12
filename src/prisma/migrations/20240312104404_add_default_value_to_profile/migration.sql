@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "Profile" ALTER COLUMN "firstName" SET DEFAULT '',
+ALTER COLUMN "lastName" SET DEFAULT '',
+ALTER COLUMN "profileImage" SET DEFAULT '',
+ALTER COLUMN "age" DROP NOT NULL,
+ALTER COLUMN "phone" SET DEFAULT '';

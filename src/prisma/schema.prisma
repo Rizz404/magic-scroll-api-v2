@@ -1,0 +1,129 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"] // ! experimental
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String    @id @default(cuid())
+  username   String
+  email      String
+  password   String?
+  role       Roles     @default(USER)
+  isOauth    Boolean
+  lastLogin  DateTime?
+  isVerified Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  profile  Profile?
+  notes    Notes[]
+  upvote   Upvote[]
+  downvote Downvote[]
+
+  @@unique([username, email])
+  @@index([username])
+}
+
+model Profile {
+  id           String   @id @default(cuid())
+  userId       String
+  firstName    String   @default("")
+  lastName     String   @default("")
+  profileImage String   @default("")
+  age          Int?
+  phone        String   @default("")
+  socialMedias String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id])
+  followers  Follow[] @relation("FollowerRelation")
+  followings Follow[] @relation("FollowingRelation")
+
+  @@unique([userId])
+  @@index([userId])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  follower  Profile @relation("FollowerRelation", fields: [followerId], references: [id])
+  following Profile @relation("FollowingRelation", fields: [followingId], references: [id])
+
+  @@unique([followerId, followingId])
+}
+
+model Notes {
+  id             String   @id @default(cuid())
+  userId         String
+  studyId        String
+  title          String
+  content        String
+  thumbnailImage String
+  attachments    String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user     User       @relation(fields: [userId], references: [id])
+  study    Study      @relation(fields: [studyId], references: [id])
+  tags     Tag[]
+  upvote   Upvote[]
+  downvote Downvote[]
+}
+
+model Tag {
+  id          String @id @default(cuid())
+  name        String
+  description String
+
+  notes Notes[]
+}
+
+model Upvote {
+  id        String   @id @default(cuid())
+  userId    String
+  noteId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id])
+  note Notes @relation(fields: [noteId], references: [id])
+
+  @@unique([userId, noteId])
+}
+
+model Downvote {
+  id        String   @id @default(cuid())
+  userId    String
+  noteId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id])
+  note Notes @relation(fields: [noteId], references: [id])
+
+  @@unique([userId, noteId])
+}
+
+model Study {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  notes       Notes[]
+}
+
+enum Roles {
+  USER
+  ADMIN
+}
