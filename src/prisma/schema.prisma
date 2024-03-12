@@ -21,7 +21,7 @@ model User {
   updatedAt  DateTime  @updatedAt
 
   profile  Profile?
-  notes    Notes[]
+  notes    Note[]
   upvote   Upvote[]
   downvote Downvote[]
 
@@ -62,7 +62,7 @@ model Follow {
   @@unique([followerId, followingId])
 }
 
-model Notes {
+model Note {
   id             String   @id @default(cuid())
   userId         String
   studyId        String
@@ -73,19 +73,41 @@ model Notes {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user     User       @relation(fields: [userId], references: [id])
-  study    Study      @relation(fields: [studyId], references: [id])
-  tags     Tag[]
-  upvote   Upvote[]
-  downvote Downvote[]
+  user        User         @relation(fields: [userId], references: [id])
+  study       Study        @relation(fields: [studyId], references: [id])
+  tags        Tag[]
+  upvote      Upvote[]
+  downvote    Downvote[]
+  PrivateNote PrivateNote?
+
+  @@index([userId, studyId, title])
+}
+
+model PrivateNote {
+  id          String   @id @default(cuid())
+  noteId      String
+  password    String?
+  sharedUsers String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  note Note @relation(fields: [noteId], references: [id])
+
+  @@unique([noteId])
+  @@index([noteId])
 }
 
 model Tag {
-  id          String @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  notes Notes[]
+  notes Note[]
+
+  @@unique([name])
+  @@index([name])
 }
 
 model Upvote {
@@ -95,8 +117,8 @@ model Upvote {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User  @relation(fields: [userId], references: [id])
-  note Notes @relation(fields: [noteId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  note Note @relation(fields: [noteId], references: [id])
 
   @@unique([userId, noteId])
 }
@@ -108,8 +130,8 @@ model Downvote {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User  @relation(fields: [userId], references: [id])
-  note Notes @relation(fields: [noteId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  note Note @relation(fields: [noteId], references: [id])
 
   @@unique([userId, noteId])
 }
@@ -120,7 +142,7 @@ model Study {
   description String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  notes       Notes[]
+  notes       Note[]
 }
 
 enum Roles {
