@@ -38,8 +38,8 @@ export const getPaginatedResponse = <T>(
   };
 
   const paginatedResponse: PaginatedResponse<T> = {
-    paginationState,
     data,
+    paginationState,
   };
 
   return paginatedResponse;

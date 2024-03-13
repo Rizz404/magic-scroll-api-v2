@@ -20,10 +20,11 @@ model User {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  profile  Profile?
-  notes    Note[]
-  upvote   Upvote[]
-  downvote Downvote[]
+  profile        Profile?
+  notes          Note[]
+  upvote         Upvote[]
+  downvote       Downvote[]
+  notePermission NotePermission[]
 
   @@unique([username, email])
   @@index([username])
@@ -74,25 +75,26 @@ model Note {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user        User         @relation(fields: [userId], references: [id])
-  study       Study        @relation(fields: [studyId], references: [id])
-  tags        Tag[]
-  upvote      Upvote[]
-  downvote    Downvote[]
-  privateNote PrivateNote?
+  user           User             @relation(fields: [userId], references: [id])
+  study          Study            @relation(fields: [studyId], references: [id])
+  tags           Tag[]
+  upvote         Upvote[]
+  downvote       Downvote[]
+  notePermission NotePermission[]
 
   @@index([userId, studyId, title])
 }
 
-model PrivateNote {
-  id          String   @id @default(cuid())
-  noteId      String
-  password    String?
-  sharedUsers String[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model NotePermission {
+  id         String     @id @default(cuid())
+  noteId     String
+  userId     String
+  permission Permission @default(READ)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   note Note @relation(fields: [noteId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@unique([noteId])
   @@index([noteId])
@@ -154,4 +156,9 @@ model Study {
 enum Roles {
   USER
   ADMIN
+}
+
+enum Permission {
+  READ
+  READ_WRITE
 }

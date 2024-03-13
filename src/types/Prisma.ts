@@ -1,11 +1,10 @@
-import { Note, Profile, Tag, User } from "@prisma/client";
+import { Note, NotePermission, Profile, Tag, User } from "@prisma/client";
 
 export interface ExtendedUser extends User {
   profile: Profile | null;
 }
 
 export interface ExtendedNote extends Note {
-  password?: string;
-  sharedUsers?: string[];
+  notePermission?: NotePermission[];
   tags: Tag[];
 }
