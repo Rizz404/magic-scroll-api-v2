@@ -2,7 +2,7 @@ import { RequestHandler } from "express";
 import { getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
 import { ExtendedNote } from "../types/Prisma";
-import { Note, NotePermission, Permission } from "@prisma/client";
+import { Downvote, Note, NotePermission, Permission, Upvote } from "@prisma/client";
 
 export const createNote: RequestHandler = async (req, res) => {
   try {
@@ -137,6 +137,82 @@ export const updateNote: RequestHandler = async (req, res) => {
   }
 };
 
+export const upvoteNote: RequestHandler = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { noteId } = req.params;
+
+    const existingUpvote = await prisma.upvote.findUnique({
+      where: { userId_noteId: { userId: id, noteId } },
+    });
+    const existingDownvote = await prisma.downvote.findUnique({
+      where: { userId_noteId: { userId: id, noteId } },
+    });
+
+    let upvoteStatus: Upvote;
+
+    if (!existingUpvote) {
+      if (existingDownvote) {
+        await prisma.downvote.delete({
+          where: { userId_noteId: { userId: id, noteId } },
+        });
+      }
+      upvoteStatus = await prisma.upvote.create({ data: { userId: id, noteId } });
+    } else {
+      upvoteStatus = await prisma.upvote.delete({
+        where: { userId_noteId: { userId: id, noteId } },
+      });
+    }
+
+    res.status(200).json({
+      message: !existingUpvote
+        ? `Success upvoted note with Id ${upvoteStatus.id}`
+        : `Success remove upvote note with Id ${upvoteStatus.id}`,
+      data: upvoteStatus,
+    });
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const downvoteNote: RequestHandler = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { noteId } = req.params;
+
+    const existingDownvote = await prisma.downvote.findUnique({
+      where: { userId_noteId: { userId: id, noteId } },
+    });
+    const existingUpvote = await prisma.upvote.findUnique({
+      where: { userId_noteId: { userId: id, noteId } },
+    });
+
+    let downvoteStatus: Downvote;
+
+    if (!existingDownvote) {
+      if (existingUpvote) {
+        await prisma.upvote.delete({
+          where: { userId_noteId: { userId: id, noteId } },
+        });
+      }
+      downvoteStatus = await prisma.downvote.create({ data: { userId: id, noteId } });
+    } else {
+      downvoteStatus = await prisma.downvote.delete({
+        where: { userId_noteId: { userId: id, noteId } },
+      });
+    }
+
+    res.status(200).json({
+      message: !existingDownvote
+        ? `Success upvoted note with Id ${downvoteStatus.id}`
+        : `Success remove upvote note with Id ${downvoteStatus.id}`,
+      data: downvoteStatus,
+    });
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
 // * NotePermission
 export const getNotePermissionsFromNote: RequestHandler = async (req, res) => {
   try {
@@ -162,20 +238,27 @@ export const getNotePermissionsFromNote: RequestHandler = async (req, res) => {
   }
 };
 
-export const addUserPermission: RequestHandler = async (req, res) => {
+export const addNotePermission: RequestHandler = async (req, res) => {
   try {
+    const { id } = req.user;
     const {
       noteId,
       userId,
       permission = Permission.READ,
     }: { noteId: string; userId: string; permission?: Permission } = req.body;
 
+    const isNoteCreator = await prisma.note.findUnique({ where: { id: noteId, userId: id } });
+
+    if (!isNoteCreator) {
+      return res.status(400).json({ message: "Only note creator can add note permission" });
+    }
+
     const isAlreadyContributor = await prisma.notePermission.findUnique({
       where: { noteId, userId },
     });
 
     if (isAlreadyContributor) {
-      return res.status(400).json({ message: "You are already contributor" });
+      return res.status(400).json({ message: "User is already contributor" });
     }
 
     const newNotePermission = await prisma.notePermission.create({
@@ -188,13 +271,25 @@ export const addUserPermission: RequestHandler = async (req, res) => {
   }
 };
 
-export const changeUserPermission: RequestHandler = async (req, res) => {
+export const changeNotePermission: RequestHandler = async (req, res) => {
   try {
+    const { id } = req.user;
     const {
       noteId,
       userId,
       permission,
     }: { noteId: string; userId: string; permission: Permission } = req.body;
+
+    const isFounderOrHasReadAndWriteAccess = await prisma.note.findUnique({
+      where: { id: noteId, userId: id, notePermission: { some: { userId: id } } },
+    });
+
+    if (!isFounderOrHasReadAndWriteAccess) {
+      return res.status(400).json({
+        message:
+          "Only note creator and user who has read and write access can update note permission",
+      });
+    }
 
     const updatedNotePermission = await prisma.notePermission.update({
       where: { noteId, userId },
