@@ -1,7 +1,7 @@
 import { RequestHandler } from "express";
 import { getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
-import { Profile, User } from "@prisma/client";
+import { Prisma, Profile, User } from "@prisma/client";
 import { excludeFields } from "../utils/prisma";
 
 export const getUsers: RequestHandler = async (req, res) => {
@@ -47,6 +47,45 @@ export const getUserById: RequestHandler = async (req, res) => {
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const checkUserAvailability: RequestHandler = async (req, res) => {
+  try {
+    const { username, email } = req.body;
+
+    // * Cek apakah username dan email tidak kosong
+    if (!username && !email) {
+      return res.status(400).json({ message: "Username must be filled" });
+    }
+
+    const message = [];
+
+    // Jika username diisi, cek ketersediaan username
+    if (username) {
+      const existingUserWithUsername = await prisma.user.findFirst({ where: { username } });
+      if (existingUserWithUsername) {
+        message.push("Username already in use");
+      }
+    }
+
+    // Jika email diisi, cek ketersediaan email
+    if (email) {
+      const existingUserWithEmail = await prisma.user.findFirst({ where: { email } });
+      if (existingUserWithEmail) {
+        message.push("Email already in use");
+      }
+    }
+
+    // Jika ada error, kembalikan response error
+    if (message.length > 0) {
+      return res.status(400).json({ message });
+    }
+
+    // * Jika tidak ada user yang ditemukan, berarti username dan email tersedia
+    res.json({ message: "Username dan email tersedia" });
+  } catch (error) {
+    res.status(500).json({ message: "Terjadi kesalahan pada server" });
   }
 };
 

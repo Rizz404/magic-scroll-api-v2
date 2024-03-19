@@ -33,7 +33,7 @@ export const getPaginatedResponse = <T>(
     totalPages,
     startIndex,
     endIndex,
-    hasNextPage: page < totalData,
+    hasNextPage: page < totalPages,
     hasPrevPage: page > 1,
   };
 

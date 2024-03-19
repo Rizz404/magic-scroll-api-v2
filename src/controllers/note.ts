@@ -2,7 +2,7 @@ import { RequestHandler } from "express";
 import { getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
 import { ExtendedNote } from "../types/Prisma";
-import { Note, NotePermission, Permission } from "@prisma/client";
+import { Permission } from "@prisma/client";
 
 export const createNote: RequestHandler = async (req, res) => {
   try {
@@ -53,6 +53,7 @@ export const createNote: RequestHandler = async (req, res) => {
 
 export const getNotes: RequestHandler = async (req, res) => {
   try {
+    const { id } = req.user;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
 
@@ -65,6 +66,13 @@ export const getNotes: RequestHandler = async (req, res) => {
       include: {
         study: { select: { id: true, name: true, image: true } },
         tags: { select: { id: true, name: true } },
+        ...(req.user &&
+          id && {
+            noteInteraction: {
+              where: { userId: id },
+              select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
+            },
+          }),
       },
     });
     const response = getPaginatedResponse(notes, page, limit, totalData);
@@ -97,6 +105,13 @@ export const getNoteById: RequestHandler = async (req, res) => {
         notePermission: {
           include: { user: { select: { id: true, username: true, email: true } } },
         },
+        ...(req.user &&
+          id && {
+            noteInteraction: {
+              where: { userId: id },
+              select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
+            },
+          }),
       },
     });
 
@@ -151,22 +166,46 @@ export const upvoteNote: RequestHandler = async (req, res) => {
     let upvoteStatus;
 
     if (!existingVoteInteraction) {
-      upvoteStatus = await prisma.noteInteraction.create({
-        data: { userId: id, noteId, isUpvoted: true },
+      upvoteStatus = await prisma.$transaction(async (tx) => {
+        const newInteraction = await tx.noteInteraction.create({
+          data: { userId: id, noteId, isUpvoted: true },
+        });
+
+        await tx.note.update({ where: { id: noteId }, data: { upvotedCount: { increment: 1 } } });
+
+        return newInteraction;
       });
 
       return res.json({ message: "Note upvote successful", data: upvoteStatus });
     }
 
     if (!existingUpvote) {
-      upvoteStatus = await prisma.noteInteraction.update({
-        where: { userId_noteId: { userId: id, noteId } },
-        data: { isUpvoted: true, isDownvoted: false },
+      upvoteStatus = await prisma.$transaction(async (tx) => {
+        const updatedInteraction = await tx.noteInteraction.update({
+          where: { userId_noteId: { userId: id, noteId } },
+          data: { isUpvoted: true, isDownvoted: false },
+        });
+
+        await tx.note.update({
+          where: { id: noteId },
+          data: {
+            upvotedCount: { increment: 1 },
+            downvotedCount: { decrement: existingVoteInteraction.isDownvoted ? 1 : 0 },
+          },
+        });
+
+        return updatedInteraction;
       });
     } else {
-      upvoteStatus = await prisma.noteInteraction.update({
-        where: { userId_noteId: { userId: id, noteId } },
-        data: { isUpvoted: false },
+      upvoteStatus = await prisma.$transaction(async (tx) => {
+        const updatedInteraction = await tx.noteInteraction.update({
+          where: { userId_noteId: { userId: id, noteId } },
+          data: { isUpvoted: false },
+        });
+
+        await tx.note.update({ where: { id: noteId }, data: { upvotedCount: { decrement: 1 } } });
+
+        return updatedInteraction;
       });
     }
 
@@ -193,22 +232,49 @@ export const downvoteNote: RequestHandler = async (req, res) => {
     let downvoteStatus;
 
     if (!existingVoteInteraction) {
-      downvoteStatus = await prisma.noteInteraction.create({
-        data: { userId: id, noteId, isDownvoted: true },
+      downvoteStatus = await prisma.$transaction(async (tx) => {
+        const newInteraction = await tx.noteInteraction.create({
+          data: { userId: id, noteId, isDownvoted: true },
+        });
+
+        await tx.note.update({
+          where: { id: noteId },
+          data: { downvotedCount: { increment: 1 } },
+        });
+
+        return newInteraction;
       });
 
       return res.json({ message: "Note downvote successful", data: downvoteStatus });
     }
 
     if (!existingDownvote) {
-      downvoteStatus = await prisma.noteInteraction.update({
-        where: { userId_noteId: { userId: id, noteId } },
-        data: { isDownvoted: true, isUpvoted: false },
+      downvoteStatus = await prisma.$transaction(async (tx) => {
+        const updatedInteraction = await tx.noteInteraction.update({
+          where: { userId_noteId: { userId: id, noteId } },
+          data: { isDownvoted: true, isUpvoted: false },
+        });
+
+        await tx.note.update({
+          where: { id: noteId },
+          data: {
+            downvotedCount: { increment: 1 },
+            upvotedCount: { decrement: existingVoteInteraction.isUpvoted ? 1 : 0 },
+          },
+        });
+
+        return updatedInteraction;
       });
     } else {
-      downvoteStatus = await prisma.noteInteraction.update({
-        where: { userId_noteId: { userId: id, noteId } },
-        data: { isDownvoted: false },
+      downvoteStatus = await prisma.$transaction(async (tx) => {
+        const updatedInteraction = await tx.noteInteraction.update({
+          where: { userId_noteId: { userId: id, noteId } },
+          data: { isDownvoted: false },
+        });
+
+        await tx.note.update({ where: { id: noteId }, data: { downvotedCount: { decrement: 1 } } });
+
+        return updatedInteraction;
       });
     }
 
@@ -235,22 +301,40 @@ export const makeNoteFavorite: RequestHandler = async (req, res) => {
     let favoriteStatus;
 
     if (!existingNoteInteraction) {
-      favoriteStatus = await prisma.noteInteraction.create({
-        data: { userId: id, noteId, isFavorited: true },
+      favoriteStatus = await prisma.$transaction(async (tx) => {
+        const newInteraction = await tx.noteInteraction.create({
+          data: { userId: id, noteId, isFavorited: true },
+        });
+
+        await tx.note.update({ where: { id: noteId }, data: { favoritedCount: { increment: 1 } } });
+
+        return newInteraction;
       });
 
       return res.json({ message: "Note favorite successful", data: favoriteStatus });
     }
 
     if (!isNoteFavorite) {
-      favoriteStatus = await prisma.noteInteraction.update({
-        where: { userId_noteId: { userId: id, noteId } },
-        data: { isFavorited: true },
+      favoriteStatus = await prisma.$transaction(async (tx) => {
+        const updatedInteraction = await tx.noteInteraction.update({
+          where: { userId_noteId: { userId: id, noteId } },
+          data: { isFavorited: true },
+        });
+
+        await tx.note.update({ where: { id: noteId }, data: { favoritedCount: { increment: 1 } } });
+
+        return updatedInteraction;
       });
     } else {
-      favoriteStatus = await prisma.noteInteraction.update({
-        where: { userId_noteId: { userId: id, noteId } },
-        data: { isFavorited: false },
+      favoriteStatus = await prisma.$transaction(async (tx) => {
+        const updatedInteraction = await tx.noteInteraction.update({
+          where: { userId_noteId: { userId: id, noteId } },
+          data: { isFavorited: false },
+        });
+
+        await tx.note.update({ where: { id: noteId }, data: { favoritedCount: { decrement: 1 } } });
+
+        return updatedInteraction;
       });
     }
 
@@ -277,22 +361,40 @@ export const saveNote: RequestHandler = async (req, res) => {
     let saveStatus;
 
     if (!existingNoteInteraction) {
-      saveStatus = await prisma.noteInteraction.create({
-        data: { userId: id, noteId, isSaved: true },
+      saveStatus = await prisma.$transaction(async (tx) => {
+        const newInteraction = await tx.noteInteraction.create({
+          data: { userId: id, noteId, isSaved: true },
+        });
+
+        await tx.note.update({ where: { id: noteId }, data: { savedCount: { increment: 1 } } });
+
+        return newInteraction;
       });
 
       return res.json({ message: "Note save successful", data: saveStatus });
     }
 
     if (!isNoteSaved) {
-      saveStatus = await prisma.noteInteraction.update({
-        where: { userId_noteId: { userId: id, noteId } },
-        data: { isSaved: true },
+      saveStatus = await prisma.$transaction(async (tx) => {
+        const updatedInteraction = await tx.noteInteraction.update({
+          where: { userId_noteId: { userId: id, noteId } },
+          data: { isSaved: true },
+        });
+
+        await tx.note.update({ where: { id: noteId }, data: { savedCount: { increment: 1 } } });
+
+        return updatedInteraction;
       });
     } else {
-      saveStatus = await prisma.noteInteraction.update({
-        where: { userId_noteId: { userId: id, noteId } },
-        data: { isSaved: false },
+      saveStatus = await prisma.$transaction(async (tx) => {
+        const updatedInteraction = await tx.noteInteraction.update({
+          where: { userId_noteId: { userId: id, noteId } },
+          data: { isSaved: false },
+        });
+
+        await tx.note.update({ where: { id: noteId }, data: { savedCount: { decrement: 1 } } });
+
+        return updatedInteraction;
       });
     }
 

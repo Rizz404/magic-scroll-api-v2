@@ -69,15 +69,23 @@ export const login: RequestHandler = async (req, res) => {
     const newRefreshToken = jwt.sign(updatedUser.id, process.env.JWT_REFRESH_TOKEN!!);
 
     res.cookie("jwt", newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV !== "development",
+      httpOnly: process.env.NODE_ENV !== "development",
+      secure: true,
       sameSite: "none",
       maxAge: 30 * 24 * 60 * 60 * 1000, // * 30 hari
     });
 
     res.json({
       message: "Login successful",
-      data: updatedUser,
+      data: {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        isOauth: updatedUser.isOauth,
+        lastLogin: updatedUser.lastLogin,
+        profileId: updatedUser.profile?.id,
+      },
       token: newAccessToken,
     });
   } catch (error) {

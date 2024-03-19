@@ -16,7 +16,7 @@ import {
 
 const router = express.Router();
 
-router.route("/").post(auth, createNote).get(getNotes).patch(auth, updateNote);
+router.route("/").post(auth, createNote).get(optionalAuth, getNotes).patch(auth, updateNote);
 router.patch("/upvote/:noteId", auth, upvoteNote);
 router.patch("/downvote/:noteId", auth, downvoteNote);
 router.patch("/favorite/:noteId", auth, makeNoteFavorite);

@@ -1,5 +1,5 @@
 import { RequestHandler } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { TokenExpiredError } from "jsonwebtoken";
 import { getErrorMessage } from "../utils/express";
 
 interface ReqUser {
@@ -37,6 +37,9 @@ export const auth: RequestHandler = async (req, res, next) => {
 
     next();
   } catch (error) {
+    if (error instanceof TokenExpiredError) {
+      return res.status(401).json({ message: "Token expired" });
+    }
     res.status(500).json({ message: getErrorMessage(error) });
   }
 };
@@ -59,6 +62,9 @@ export const optionalAuth: RequestHandler = async (req, res, next) => {
 
     next();
   } catch (error) {
+    if (error instanceof TokenExpiredError) {
+      return res.status(401).json({ message: "Token expired" });
+    }
     res.status(500).json({ message: getErrorMessage(error) });
   }
 };
