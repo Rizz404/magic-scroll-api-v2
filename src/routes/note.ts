@@ -17,11 +17,16 @@ import uploadTofirebase from "../middleware/uploadFile";
 
 const router = express.Router();
 
-const uploadImage = uploadTofirebase({ fieldname: "thumbnailImage", type: "single" });
+const uploadImage = uploadTofirebase({
+  fieldname: "thumbnailImage",
+  type: "single",
+  uploadedToFolder: "note",
+});
 const uploadImages = uploadTofirebase({
   fieldname: "attachments",
   type: "array",
   maxFileCount: 10,
+  uploadedToFolder: "note",
 });
 
 router.route("/").post(auth, uploadImage, uploadImages, createNote).get(optionalAuth, getNotes);

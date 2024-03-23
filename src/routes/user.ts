@@ -19,7 +19,11 @@ router.route("/").get(getUsers).patch(auth, updateUser);
 router
   .route("/profile")
   .get(auth, getUserProfile)
-  .patch(auth, uploadTofirebase({ fieldname: "profileImage" }), updateUserProfile);
+  .patch(
+    auth,
+    uploadTofirebase({ fieldname: "profileImage", uploadedToFolder: "user" }),
+    updateUserProfile
+  );
 router.post("/check-user-availability", checkUserAvailability);
 router.patch("/follow:userId", auth, followOrUnfollowUser);
 router.patch("/change-role", auth, allowedRoles("ADMIN"), changeUserRole);

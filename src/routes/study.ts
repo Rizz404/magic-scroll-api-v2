@@ -8,7 +8,12 @@ const router = express.Router();
 
 router
   .route("/")
-  .post(auth, allowedRoles("ADMIN"), uploadTofirebase({ fieldname: "image" }), createStudy)
+  .post(
+    auth,
+    allowedRoles("ADMIN"),
+    uploadTofirebase({ fieldname: "image", uploadedToFolder: "study" }),
+    createStudy
+  )
   .get(getStudies);
 router.route("/:studyId").get(getStudyById).patch(auth, allowedRoles("ADMIN"), updateStudy);
 
