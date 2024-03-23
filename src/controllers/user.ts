@@ -1,7 +1,7 @@
 import { RequestHandler } from "express";
 import { getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
-import { Prisma, Profile, User } from "@prisma/client";
+import { Profile, User } from "@prisma/client";
 import { excludeFields } from "../utils/prisma";
 
 export const getUsers: RequestHandler = async (req, res) => {
@@ -157,6 +157,18 @@ export const followOrUnfollowUser: RequestHandler = async (req, res) => {
       message: !isFollowing ? "User followed successfully" : "User unfollowed successfully",
       ...(!isFollowing && { data: response }),
     });
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const changeUserRole: RequestHandler = async (req, res) => {
+  try {
+    const { id: userId, role }: User = req.body;
+
+    const updatedRole = await prisma.user.update({ where: { id: userId }, data: { role } });
+
+    res.json({ message: "Successful change role", data: updatedRole });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
   }

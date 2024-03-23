@@ -24,17 +24,20 @@ const uploadImages = uploadTofirebase({
   maxFileCount: 10,
 });
 
-router
-  .route("/")
-  .post(auth, uploadImage, uploadImages, createNote)
-  .get(optionalAuth, uploadImage, uploadImages, getNotes)
-  .patch(auth, updateNote);
+router.route("/").post(auth, uploadImage, uploadImages, createNote).get(optionalAuth, getNotes);
+
 router.patch("/upvote/:noteId", auth, upvoteNote);
 router.patch("/downvote/:noteId", auth, downvoteNote);
 router.patch("/favorite/:noteId", auth, makeNoteFavorite);
 router.patch("/save/:noteId", auth, saveNote);
-router.route("/note-permissions").post(auth, addNotePermission).patch(auth, changeNotePermission);
-router.get("/note-permissions/:noteId", getNotePermissionsFromNote);
-router.route("/:noteId").get(optionalAuth, getNoteById);
+router
+  .route("/note-permissions/:noteId")
+  .post(auth, addNotePermission)
+  .get(getNotePermissionsFromNote)
+  .patch(auth, changeNotePermission);
+router
+  .route("/:noteId")
+  .get(optionalAuth, getNoteById)
+  .patch(auth, uploadImage, uploadImages, updateNote);
 
 export default router;

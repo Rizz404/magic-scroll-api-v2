@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  changeUserRole,
   checkUserAvailability,
   followOrUnfollowUser,
   getUserById,
@@ -10,6 +11,7 @@ import {
 } from "../controllers/user";
 import { auth } from "../middleware/auth";
 import uploadTofirebase from "../middleware/uploadFile";
+import allowedRoles from "../middleware/allowedRoles";
 
 const router = express.Router();
 
@@ -20,6 +22,7 @@ router
   .patch(auth, uploadTofirebase({ fieldname: "profileImage" }), updateUserProfile);
 router.post("/check-user-availability", checkUserAvailability);
 router.patch("/follow:userId", auth, followOrUnfollowUser);
+router.patch("/change-role", auth, allowedRoles("ADMIN"), changeUserRole);
 router.route("/:userId").get(getUserById);
 
 export default router;

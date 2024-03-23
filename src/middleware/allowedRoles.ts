@@ -13,6 +13,8 @@ const allowedRoles: (allowedRoles: "ADMIN" | "USER") => RequestHandler =
       if (!allowedRoles.includes(role)) {
         return res.status(403).json({ message: `Only ${allowedRoles} allowed` });
       }
+
+      next();
     } catch (error) {
       res.status(500).json({ message: getErrorMessage(error) });
     }

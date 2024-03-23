@@ -123,11 +123,12 @@ export const getNoteById: RequestHandler = async (req, res) => {
   }
 };
 
-// * Mulai sekarang patch dan post pakai req.body aja jangan pake params juga
+// ! Ternyata patch tidak bisa taruh id di body sebagai patokan update
 export const updateNote: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user;
-    const { id: noteId, studyId, title, content, isPrivate }: Note = req.body;
+    const { noteId } = req.params;
+    const { studyId, title, content, isPrivate }: Note = req.body;
     const image = req.file as FileWithFirebase;
     const files = req.files as FilesWithFirebase;
 
@@ -444,8 +445,8 @@ export const getNotePermissionsFromNote: RequestHandler = async (req, res) => {
 export const addNotePermission: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user;
+    const { noteId } = req.params;
     const {
-      noteId,
       userId,
       permission = Permission.READ,
     }: { noteId: string; userId: string; permission?: Permission } = req.body;
@@ -477,11 +478,9 @@ export const addNotePermission: RequestHandler = async (req, res) => {
 export const changeNotePermission: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user;
-    const {
-      noteId,
-      userId,
-      permission,
-    }: { noteId: string; userId: string; permission: Permission } = req.body;
+    const { noteId } = req.params;
+    const { userId, permission }: { noteId: string; userId: string; permission: Permission } =
+      req.body;
 
     const isFounderOrHasReadAndWriteAccess = await prisma.note.findUnique({
       where: { id: noteId, userId: id, notePermission: { some: { userId: id } } },

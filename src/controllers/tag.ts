@@ -47,7 +47,8 @@ export const getTagById: RequestHandler = async (req, res) => {
 
 export const updateTag: RequestHandler = async (req, res) => {
   try {
-    const { id: tagId, name, description }: Tag = req.body;
+    const { tagId } = req.params;
+    const { name, description }: Tag = req.body;
 
     const updatedTag = await prisma.tag.update({
       where: { id: tagId },

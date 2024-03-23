@@ -50,7 +50,8 @@ export const getStudyById: RequestHandler = async (req, res) => {
 
 export const updateStudy: RequestHandler = async (req, res) => {
   try {
-    const { id: studyId, name, description }: Study = req.body;
+    const { studyId } = req.params;
+    const { name, description }: Study = req.body;
     const image = req.file as FileWithFirebase;
 
     const updatedStudy = await prisma.study.update({
