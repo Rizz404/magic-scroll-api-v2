@@ -13,10 +13,22 @@ import {
   updateNote,
   upvoteNote,
 } from "../controllers/note";
+import uploadTofirebase from "../middleware/uploadFile";
 
 const router = express.Router();
 
-router.route("/").post(auth, createNote).get(optionalAuth, getNotes).patch(auth, updateNote);
+const uploadImage = uploadTofirebase({ fieldname: "thumbnailImage", type: "single" });
+const uploadImages = uploadTofirebase({
+  fieldname: "attachments",
+  type: "array",
+  maxFileCount: 10,
+});
+
+router
+  .route("/")
+  .post(auth, uploadImage, uploadImages, createNote)
+  .get(optionalAuth, getNotes)
+  .patch(auth, updateNote);
 router.patch("/upvote/:noteId", auth, upvoteNote);
 router.patch("/downvote/:noteId", auth, downvoteNote);
 router.patch("/favorite/:noteId", auth, makeNoteFavorite);

@@ -2,21 +2,14 @@ import { RequestHandler } from "express";
 import { getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
 import { ExtendedNote } from "../types/Prisma";
-import { Permission } from "@prisma/client";
+import { Note, Permission, Tag } from "@prisma/client";
 
 export const createNote: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user;
-    const {
-      studyId,
-      title,
-      content,
-      thumbnailImage,
-      attachments,
-      isPrivate,
-      notePermission,
-      tags,
-    }: ExtendedNote = req.body;
+    const { studyId, title, content, isPrivate, notePermission, tags } = req.body;
+    const image = req.file;
+    const files = req.files;
 
     // * Many to many relation itu otomatis nambakan note ke tag juga
     const newNote = await prisma.note.create({
@@ -25,16 +18,21 @@ export const createNote: RequestHandler = async (req, res) => {
         studyId,
         title,
         content,
-        thumbnailImage,
-        attachments,
+        // @ts-ignore
+        ...(image && { thumbnailImage: image.firebaseUrl }),
+        ...(files &&
+          files.length !== 0 && {
+            // @ts-ignore
+            attachments: files.map((file) => file.firebaseUrl) || [],
+          }),
         isPrivate,
         notePermission: {
           create:
             isPrivate && notePermission && notePermission.length > 0
-              ? notePermission.map((note) => ({ userId: note.userId, permission: "READ" }))
+              ? notePermission.map((note: Note) => ({ userId: note.userId, permission: "READ" }))
               : undefined,
         },
-        tags: { connect: tags.map((tag) => ({ id: tag.id })) },
+        tags: { connect: tags.map((tag: Tag) => ({ id: tag.id })) },
       },
       include: {
         study: true,
