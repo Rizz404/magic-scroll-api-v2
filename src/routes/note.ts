@@ -27,7 +27,7 @@ const uploadImages = uploadTofirebase({
 router
   .route("/")
   .post(auth, uploadImage, uploadImages, createNote)
-  .get(optionalAuth, getNotes)
+  .get(optionalAuth, uploadImage, uploadImages, getNotes)
   .patch(auth, updateNote);
 router.patch("/upvote/:noteId", auth, upvoteNote);
 router.patch("/downvote/:noteId", auth, downvoteNote);
