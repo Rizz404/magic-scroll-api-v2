@@ -45,4 +45,5 @@ export const getPaginatedResponse = <T>(
   return paginatedResponse;
 };
 
-export type FileWithFirebase = File & { firebaseUrl: string };
+export type FileWithFirebase = Express.Multer.File & { firebaseUrl: string };
+export type FilesWithFirebase = FileWithFirebase[];

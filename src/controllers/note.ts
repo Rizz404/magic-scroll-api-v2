@@ -1,15 +1,19 @@
 import { RequestHandler } from "express";
-import { getErrorMessage, getPaginatedResponse } from "../utils/express";
+import {
+  FileWithFirebase,
+  FilesWithFirebase,
+  getErrorMessage,
+  getPaginatedResponse,
+} from "../utils/express";
 import prisma from "../config/dbConfig";
-import { ExtendedNote } from "../types/Prisma";
 import { Note, Permission, Tag } from "@prisma/client";
 
 export const createNote: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user;
     const { studyId, title, content, isPrivate, notePermission, tags } = req.body;
-    const image = req.file;
-    const files = req.files;
+    const image = req.file as FileWithFirebase;
+    const files = req.files as FilesWithFirebase;
 
     // * Many to many relation itu otomatis nambakan note ke tag juga
     const newNote = await prisma.note.create({
@@ -18,12 +22,10 @@ export const createNote: RequestHandler = async (req, res) => {
         studyId,
         title,
         content,
-        // @ts-ignore
         ...(image && { thumbnailImage: image.firebaseUrl }),
         ...(files &&
           files.length !== 0 && {
-            // @ts-ignore
-            attachments: files.map((file) => file.firebaseUrl) || [],
+            attachments: files.map((file) => file.firebaseUrl),
           }),
         isPrivate,
         notePermission: {
@@ -125,7 +127,9 @@ export const getNoteById: RequestHandler = async (req, res) => {
 export const updateNote: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user;
-    const { noteId, studyId, title, content, thumbnailImage, attachments, isPrivate } = req.body;
+    const { id: noteId, studyId, title, content, isPrivate }: Note = req.body;
+    const image = req.file as FileWithFirebase;
+    const files = req.files as FilesWithFirebase;
 
     const hasReadAndWritePermission = await prisma.notePermission.findFirst({
       where: { noteId, userId: id, permission: "READ_WRITE" },
@@ -137,7 +141,14 @@ export const updateNote: RequestHandler = async (req, res) => {
 
     const updatedNote = await prisma.note.update({
       where: { id: noteId },
-      data: { studyId, title, content, thumbnailImage, attachments, isPrivate },
+      data: {
+        studyId,
+        title,
+        content,
+        ...(image && { thumbnailImage: image.firebaseUrl }),
+        ...(files && files.length !== 0 && { attachments: files.map((file) => file.firebaseUrl) }),
+        isPrivate,
+      },
     });
 
     if (updatedNote.isPrivate === false) {

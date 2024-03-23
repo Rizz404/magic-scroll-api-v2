@@ -6,10 +6,9 @@ import prisma from "../config/dbConfig";
 export const createStudy: RequestHandler = async (req, res) => {
   try {
     const { name, description }: Study = req.body;
-    const image = req.file;
+    const image = req.file as FileWithFirebase;
 
     const newStudy = await prisma.study.create({
-      // @ts-ignore
       data: { name, description, ...(image && { image: image.firebaseUrl }) },
     });
 
@@ -52,7 +51,7 @@ export const getStudyById: RequestHandler = async (req, res) => {
 export const updateStudy: RequestHandler = async (req, res) => {
   try {
     const { id: studyId, name, description }: Study = req.body;
-    const image = req.file as unknown as FileWithFirebase;
+    const image = req.file as FileWithFirebase;
 
     const updatedStudy = await prisma.study.update({
       where: { id: studyId },
