@@ -1,13 +1,17 @@
 import { Study } from "@prisma/client";
 import { RequestHandler } from "express";
-import { getErrorMessage, getPaginatedResponse } from "../utils/express";
+import { FileWithFirebase, getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
 
 export const createStudy: RequestHandler = async (req, res) => {
   try {
     const { name, description }: Study = req.body;
+    const image = req.file;
 
-    const newStudy = await prisma.study.create({ data: { name, description } });
+    const newStudy = await prisma.study.create({
+      // @ts-ignore
+      data: { name, description, ...(image && { image: image.firebaseUrl }) },
+    });
 
     res.status(201).json({ message: "Create study successful", data: newStudy });
   } catch (error) {
@@ -40,6 +44,22 @@ export const getStudyById: RequestHandler = async (req, res) => {
     if (!study) return res.status(404).json({ message: "Study not found" });
 
     res.json(study);
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const updateStudy: RequestHandler = async (req, res) => {
+  try {
+    const { id: studyId, name, description }: Study = req.body;
+    const image = req.file as unknown as FileWithFirebase;
+
+    const updatedStudy = await prisma.study.update({
+      where: { id: studyId },
+      data: { name, description, ...(image && { image: image.firebaseUrl }) },
+    });
+
+    res.json({ message: "Update study successful", data: updatedStudy });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
   }

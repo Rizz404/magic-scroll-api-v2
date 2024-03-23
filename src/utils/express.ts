@@ -44,3 +44,5 @@ export const getPaginatedResponse = <T>(
 
   return paginatedResponse;
 };
+
+export type FileWithFirebase = File & { firebaseUrl: string };

@@ -44,3 +44,18 @@ export const getTagById: RequestHandler = async (req, res) => {
     res.status(500).json({ message: getErrorMessage(error) });
   }
 };
+
+export const updateTag: RequestHandler = async (req, res) => {
+  try {
+    const { id: tagId, name, description }: Tag = req.body;
+
+    const updatedTag = await prisma.tag.update({
+      where: { id: tagId },
+      data: { name, description },
+    });
+
+    res.json({ message: "Update tag successful", data: updatedTag });
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
