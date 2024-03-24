@@ -18,7 +18,7 @@ async function createRandomUser() {
 (async () => {
   const userCreationPromises = [];
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 187; i++) {
     userCreationPromises.push(createRandomUser());
   }
 
