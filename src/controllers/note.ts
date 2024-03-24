@@ -53,7 +53,7 @@ export const createNote: RequestHandler = async (req, res) => {
 
 export const getNotes: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const userId = req.user?.id;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
 
@@ -67,9 +67,9 @@ export const getNotes: RequestHandler = async (req, res) => {
         study: { select: { id: true, name: true, image: true } },
         tags: { select: { id: true, name: true } },
         ...(req.user &&
-          id && {
+          userId && {
             noteInteraction: {
-              where: { userId: id },
+              where: { userId },
               select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
             },
           }),
