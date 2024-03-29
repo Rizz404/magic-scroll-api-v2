@@ -15,6 +15,14 @@ export const createNote: RequestHandler = async (req, res) => {
     const image = req.file as FileWithFirebase;
     const files = req.files as FilesWithFirebase;
 
+    const randomImages = [
+      "https://i.pinimg.com/236x/f6/77/b0/f677b029c3b794a5fada3f884f91522b.jpg",
+      "https://i.pinimg.com/236x/c6/20/50/c62050082632c18cf1c838120f268bfb.jpg",
+      "https://i.pinimg.com/236x/9f/c2/14/9fc214fa94964af4a6728cf3571cd795.jpg",
+      "https://i.pinimg.com/236x/01/dd/0c/01dd0c332d164345145156d464498df1.jpg",
+    ];
+    const randomIndex = Math.floor(Math.random() * randomImages.length);
+
     // * Many to many relation itu otomatis nambakan note ke tag juga
     const newNote = await prisma.note.create({
       data: {
@@ -22,7 +30,7 @@ export const createNote: RequestHandler = async (req, res) => {
         studyId,
         title,
         content,
-        ...(image && { thumbnailImage: image.firebaseUrl }),
+        thumbnailImage: image ? image.firebaseUrl : randomImages[randomIndex],
         ...(files &&
           files.length !== 0 && {
             attachments: files.map((file) => file.firebaseUrl),

@@ -67,7 +67,7 @@ model Note {
   studyId        String
   title          String
   content        String
-  thumbnailImage String?
+  thumbnailImage String
   attachments    String[]
   isPrivate      Boolean  @default(false)
   upvotedCount   Int      @default(0)
@@ -134,7 +134,7 @@ model Study {
   id          String   @id @default(cuid())
   name        String
   description String
-  image       String?
+  image       String   @default("https://i.pinimg.com/236x/a2/6a/27/a26a27a5ff6a2cb80d5b872a73d1413b.jpg")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
