@@ -7,6 +7,7 @@ import {
 } from "../utils/express";
 import prisma from "../config/dbConfig";
 import { Note, Permission, Tag } from "@prisma/client";
+import deleteFileFirebase from "../utils/firebase";
 
 export const createNote: RequestHandler = async (req, res) => {
   try {
@@ -14,6 +15,11 @@ export const createNote: RequestHandler = async (req, res) => {
     const { studyId, title, content, isPrivate, notePermission, tags } = req.body;
     const image = req.file as FileWithFirebase;
     const files = req.files as FilesWithFirebase;
+
+    const isPrivateBool = typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
+    const notePermissionParsed =
+      typeof notePermission === "string" ? JSON.parse(notePermission) : notePermission;
+    const tagsParsed = typeof tags === "string" ? JSON.parse(tags) : tags;
 
     const randomImages = [
       "https://i.pinimg.com/236x/f6/77/b0/f677b029c3b794a5fada3f884f91522b.jpg",
@@ -35,14 +41,17 @@ export const createNote: RequestHandler = async (req, res) => {
           files.length !== 0 && {
             attachments: files.map((file) => file.firebaseUrl),
           }),
-        isPrivate,
+        isPrivate: isPrivateBool,
         notePermission: {
           create:
-            isPrivate && notePermission && notePermission.length > 0
-              ? notePermission.map((note: Note) => ({ userId: note.userId, permission: "READ" }))
+            isPrivateBool && notePermissionParsed && notePermissionParsed.length > 0
+              ? notePermissionParsed.map((note: Note) => ({
+                  userId: note.userId,
+                  permission: "READ",
+                }))
               : undefined,
         },
-        tags: { connect: tags.map((tag: Tag) => ({ id: tag.id })) },
+        tags: { connect: tagsParsed ? tagsParsed.map((tag: Tag) => ({ id: tag.id })) : [] },
       },
       include: {
         study: true,
@@ -136,9 +145,12 @@ export const updateNote: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user;
     const { noteId } = req.params;
-    const { studyId, title, content, isPrivate }: Note = req.body;
+    const { studyId, title, content, isPrivate, tags } = req.body;
     const image = req.file as FileWithFirebase;
     const files = req.files as FilesWithFirebase;
+
+    const isPrivateBool = typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
+    const tagsParsed = typeof tags === "string" ? JSON.parse(tags) : tags;
 
     const hasReadAndWritePermission = await prisma.notePermission.findFirst({
       where: { noteId, userId: id, permission: "READ_WRITE" },
@@ -156,12 +168,73 @@ export const updateNote: RequestHandler = async (req, res) => {
         content,
         ...(image && { thumbnailImage: image.firebaseUrl }),
         ...(files && files.length !== 0 && { attachments: files.map((file) => file.firebaseUrl) }),
-        isPrivate,
+        isPrivate: isPrivateBool,
+        tags: { connect: tagsParsed.map((tag: Tag) => ({ id: tag.id })) },
       },
     });
 
     if (updatedNote.isPrivate === false) {
       await prisma.notePermission.deleteMany({ where: { noteId: updatedNote.id } });
+    }
+
+    res.json({ message: "Update note successful", data: updatedNote });
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const deleteImageOrAttachments: RequestHandler = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { noteId } = req.params;
+    const { deleteThumbnailImage, deleteAttachments } = req.body;
+
+    const randomImages = [
+      "https://i.pinimg.com/236x/f6/77/b0/f677b029c3b794a5fada3f884f91522b.jpg",
+      "https://i.pinimg.com/236x/c6/20/50/c62050082632c18cf1c838120f268bfb.jpg",
+      "https://i.pinimg.com/236x/9f/c2/14/9fc214fa94964af4a6728cf3571cd795.jpg",
+      "https://i.pinimg.com/236x/01/dd/0c/01dd0c332d164345145156d464498df1.jpg",
+    ];
+    const randomIndex = Math.floor(Math.random() * randomImages.length);
+
+    const hasReadAndWritePermission = await prisma.notePermission.findFirst({
+      where: { noteId, userId: id, permission: "READ_WRITE" },
+    });
+
+    if (!hasReadAndWritePermission) {
+      return res.status(403).json({ message: "You don't have permission to delete this file" });
+    }
+
+    const noteWithExistingFiles = await prisma.note.findUnique({
+      where: { id: noteId },
+      select: { thumbnailImage: true, attachments: true },
+    });
+
+    const updatedNote = await prisma.note.update({
+      where: { id: noteId },
+      data: {
+        ...(deleteThumbnailImage && { thumbnailImage: randomImages[randomIndex] }),
+        ...(deleteAttachments &&
+          deleteAttachments > 0 && {
+            attachments: noteWithExistingFiles?.attachments?.map((attachment) =>
+              deleteAttachments.includes(attachment) ? null : attachment
+            ),
+          }),
+      },
+    });
+
+    if (noteWithExistingFiles) {
+      if (deleteThumbnailImage && noteWithExistingFiles.thumbnailImage) {
+        await deleteFileFirebase("thumbnailImage", noteWithExistingFiles.thumbnailImage);
+      }
+
+      if (deleteAttachments.length > 0) {
+        const deletionPromises = deleteAttachments
+          .filter((attachment: string) => noteWithExistingFiles.attachments?.includes(attachment))
+          .map((attachment: string) => deleteFileFirebase("attachments", attachment));
+
+        await Promise.all(deletionPromises);
+      }
     }
 
     res.json({ message: "Update note successful", data: updatedNote });
