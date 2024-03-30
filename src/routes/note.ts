@@ -4,6 +4,7 @@ import {
   addNotePermission,
   changeNotePermission,
   createNote,
+  deleteImageOrAttachments,
   downvoteNote,
   getNoteById,
   getNotePermissionsFromNote,
@@ -35,6 +36,7 @@ router.patch("/upvote/:noteId", auth, upvoteNote);
 router.patch("/downvote/:noteId", auth, downvoteNote);
 router.patch("/favorite/:noteId", auth, makeNoteFavorite);
 router.patch("/save/:noteId", auth, saveNote);
+// router.patch("/delete-note-files/:noteId", auth, deleteImageOrAttachments);
 router
   .route("/note-permissions/:noteId")
   .post(auth, addNotePermission)

@@ -5,7 +5,7 @@ import prisma from "../config/dbConfig";
 
 export const createStudy: RequestHandler = async (req, res) => {
   try {
-    const { name, description }: Study = req.body;
+    const { name, description } = req.body;
     const image = req.file as FileWithFirebase;
 
     const newStudy = await prisma.study.create({
