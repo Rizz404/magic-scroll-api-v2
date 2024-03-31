@@ -27,6 +27,7 @@ export const getNotePermissionsFromNote: RequestHandler = async (req, res) => {
   }
 };
 
+// todo: Jadiin add or change aja biar satu request
 export const addNotePermission: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user!;
