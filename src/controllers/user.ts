@@ -24,7 +24,7 @@ export const getUsers: RequestHandler = async (req, res) => {
 
 export const getUserProfile: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const { id } = req.user!;
     const user = await prisma.user.findUnique({ where: { id }, include: { profile: true } });
 
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -91,7 +91,7 @@ export const checkUserAvailability: RequestHandler = async (req, res) => {
 
 export const updateUser: RequestHandler = async (req, res) => {
   try {
-    const { id, isOauth } = req.user;
+    const { id, isOauth } = req.user!;
     const { username, email }: User = req.body;
 
     const updatedUser = await prisma.user.update({
@@ -111,7 +111,7 @@ export const updateUser: RequestHandler = async (req, res) => {
 
 export const updateUserProfile: RequestHandler = async (req, res) => {
   try {
-    const { profileId } = req.user;
+    const { profileId } = req.user!;
     const {
       firstName,
       lastName,
@@ -138,7 +138,7 @@ export const updateUserProfile: RequestHandler = async (req, res) => {
 
 export const followOrUnfollowUser: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const { id } = req.user!;
     const { userId } = req.params;
 
     const isFollowing = await prisma.follow.findUnique({

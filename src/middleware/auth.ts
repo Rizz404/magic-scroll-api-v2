@@ -15,7 +15,7 @@ interface ReqUser {
 declare global {
   namespace Express {
     interface Request {
-      user: ReqUser;
+      user?: ReqUser;
     }
   }
 }
@@ -34,6 +34,10 @@ export const auth: RequestHandler = async (req, res, next) => {
     if (!decoded.id) return res.status(401).json({ message: "Invalid token" });
 
     req.user = decoded;
+
+    if (!req.user) {
+      return res.status(401).json({ message: "Something wrong cause req.user undefined" });
+    }
 
     next();
   } catch (error) {
