@@ -75,10 +75,32 @@ export const getNotes: RequestHandler = async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 10;
 
     const skip = (page - 1) * limit;
-    const totalData = await prisma.note.count();
+    const totalData = await prisma.note.count({
+      where: {
+        OR: [
+          { isPrivate: false },
+          {
+            ...(userId && {
+              isPrivate: true,
+              OR: [{ userId }, { notePermission: { some: { userId } } }],
+            }),
+          },
+        ],
+      },
+    });
 
     const notes = await prisma.note.findMany({
-      where: { OR: [{ isPrivate: false }, { userId }, { notePermission: { some: { userId } } }] },
+      where: {
+        OR: [
+          { isPrivate: false },
+          {
+            ...(userId && {
+              isPrivate: true,
+              OR: [{ userId }, { notePermission: { some: { userId } } }],
+            }),
+          },
+        ],
+      },
       take: limit,
       skip,
       include: {
@@ -108,7 +130,15 @@ export const getNoteById: RequestHandler = async (req, res) => {
     const note = await prisma.note.findUnique({
       where: {
         id: noteId,
-        OR: [{ isPrivate: false }, { userId }, { notePermission: { some: { userId } } }],
+        OR: [
+          { isPrivate: false },
+          {
+            ...(userId && {
+              isPrivate: true,
+              OR: [{ userId }, { notePermission: { some: { userId } } }],
+            }),
+          },
+        ],
       },
       include: {
         study: true,
