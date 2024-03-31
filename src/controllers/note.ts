@@ -11,7 +11,7 @@ import deleteFileFirebase from "../utils/firebase";
 
 export const createNote: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const { id } = req.user!;
     const { studyId, title, content, isPrivate, notePermission, tags } = req.body;
     const image = req.file as FileWithFirebase;
     const files = req.files as FilesWithFirebase;
@@ -102,17 +102,14 @@ export const getNotes: RequestHandler = async (req, res) => {
 
 export const getNoteById: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const userId = req.user?.id;
     const { noteId } = req.params;
     const note = await prisma.note.findUnique({
       where: {
         id: noteId,
-        ...(req.user && id
+        ...(req.user && userId
           ? {
-              OR: [
-                { isPrivate: false },
-                { isPrivate: true, notePermission: { some: { userId: id } } },
-              ],
+              OR: [{ isPrivate: false }, { isPrivate: true, notePermission: { some: { userId } } }],
             }
           : { isPrivate: false }),
       },
@@ -123,9 +120,9 @@ export const getNoteById: RequestHandler = async (req, res) => {
           include: { user: { select: { id: true, username: true, email: true } } },
         },
         ...(req.user &&
-          id && {
+          userId && {
             noteInteraction: {
-              where: { userId: id },
+              where: { userId },
               select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
             },
           }),
@@ -143,7 +140,7 @@ export const getNoteById: RequestHandler = async (req, res) => {
 // ! Ternyata patch tidak bisa taruh id di body sebagai patokan update
 export const updateNote: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const id = req.user?.id;
     const { noteId } = req.params;
     const { studyId, title, content, isPrivate, tags } = req.body;
     const image = req.file as FileWithFirebase;
@@ -185,7 +182,7 @@ export const updateNote: RequestHandler = async (req, res) => {
 
 export const deleteImageOrAttachments: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const { id } = req.user!;
     const { noteId } = req.params;
     const { deleteThumbnailImage, deleteAttachments } = req.body;
 
@@ -245,7 +242,7 @@ export const deleteImageOrAttachments: RequestHandler = async (req, res) => {
 
 export const upvoteNote: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const { id } = req.user!;
     const { noteId } = req.params;
 
     const existingVoteInteraction = await prisma.noteInteraction.findUnique({
@@ -311,7 +308,7 @@ export const upvoteNote: RequestHandler = async (req, res) => {
 
 export const downvoteNote: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const { id } = req.user!;
     const { noteId } = req.params;
 
     const existingVoteInteraction = await prisma.noteInteraction.findUnique({
@@ -380,7 +377,7 @@ export const downvoteNote: RequestHandler = async (req, res) => {
 
 export const makeNoteFavorite: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const { id } = req.user!;
     const { noteId } = req.params;
 
     const existingNoteInteraction = await prisma.noteInteraction.findUnique({
@@ -440,7 +437,7 @@ export const makeNoteFavorite: RequestHandler = async (req, res) => {
 
 export const saveNote: RequestHandler = async (req, res) => {
   try {
-    const { id } = req.user;
+    const { id } = req.user!;
     const { noteId } = req.params;
 
     const existingNoteInteraction = await prisma.noteInteraction.findUnique({
@@ -493,95 +490,6 @@ export const saveNote: RequestHandler = async (req, res) => {
       message: !isNoteSaved ? "Note save successful" : "Note remove save successful",
       data: saveStatus,
     });
-  } catch (error) {
-    res.status(500).json({ message: getErrorMessage(error) });
-  }
-};
-
-// * NotePermission
-export const getNotePermissionsFromNote: RequestHandler = async (req, res) => {
-  try {
-    const { noteId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-
-    const skip = (page - 1) * limit;
-    const totalData = await prisma.notePermission.count();
-
-    const notePermissions = await prisma.notePermission.findMany({
-      where: { noteId },
-      take: limit,
-      skip,
-      include: { user: { select: { id: true, username: true, email: true } } },
-    });
-
-    const response = getPaginatedResponse(notePermissions, page, limit, totalData);
-
-    res.json(response);
-  } catch (error) {
-    res.status(500).json({ message: getErrorMessage(error) });
-  }
-};
-
-export const addNotePermission: RequestHandler = async (req, res) => {
-  try {
-    const { id } = req.user;
-    const { noteId } = req.params;
-    const {
-      userId,
-      permission = Permission.READ,
-    }: { noteId: string; userId: string; permission?: Permission } = req.body;
-
-    const isNoteCreator = await prisma.note.findUnique({ where: { id: noteId, userId: id } });
-
-    if (!isNoteCreator) {
-      return res.status(400).json({ message: "Only note creator can add note permission" });
-    }
-
-    const isAlreadyContributor = await prisma.notePermission.findUnique({
-      where: { noteId, userId },
-    });
-
-    if (isAlreadyContributor) {
-      return res.status(400).json({ message: "User is already contributor" });
-    }
-
-    const newNotePermission = await prisma.notePermission.create({
-      data: { noteId, userId, permission },
-    });
-
-    res.status(201).json({ message: "Add user permission successful", data: newNotePermission });
-  } catch (error) {
-    res.status(500).json({ message: getErrorMessage(error) });
-  }
-};
-
-export const changeNotePermission: RequestHandler = async (req, res) => {
-  try {
-    const { id } = req.user;
-    const { noteId } = req.params;
-    const { userId, permission }: { noteId: string; userId: string; permission: Permission } =
-      req.body;
-
-    const isFounderOrHasReadAndWriteAccess = await prisma.note.findUnique({
-      where: { id: noteId, userId: id, notePermission: { some: { userId: id } } },
-    });
-
-    if (!isFounderOrHasReadAndWriteAccess) {
-      return res.status(400).json({
-        message:
-          "Only note creator and user who has read and write access can update note permission",
-      });
-    }
-
-    const updatedNotePermission = await prisma.notePermission.update({
-      where: { noteId, userId },
-      data: { permission },
-    });
-
-    res
-      .status(200)
-      .json({ message: "Change user permission successful", data: updatedNotePermission });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
   }
