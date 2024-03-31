@@ -78,6 +78,7 @@ export const getNotes: RequestHandler = async (req, res) => {
     const totalData = await prisma.note.count();
 
     const notes = await prisma.note.findMany({
+      where: { OR: [{ isPrivate: false }, { userId }, { notePermission: { some: { userId } } }] },
       take: limit,
       skip,
       include: {
@@ -107,11 +108,7 @@ export const getNoteById: RequestHandler = async (req, res) => {
     const note = await prisma.note.findUnique({
       where: {
         id: noteId,
-        ...(req.user && userId
-          ? {
-              OR: [{ isPrivate: false }, { isPrivate: true, notePermission: { some: { userId } } }],
-            }
-          : { isPrivate: false }),
+        OR: [{ isPrivate: false }, { userId }, { notePermission: { some: { userId } } }],
       },
       include: {
         study: true,
