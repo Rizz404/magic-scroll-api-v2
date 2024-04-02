@@ -2,6 +2,7 @@ import { Study } from "@prisma/client";
 import { RequestHandler } from "express";
 import { FileWithFirebase, getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
+import { StudyOrders, orderCondition } from "../constants/study";
 
 export const createStudy: RequestHandler = async (req, res) => {
   try {
@@ -22,11 +23,42 @@ export const getStudies: RequestHandler = async (req, res) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
+    const order = req.query.order as StudyOrders;
+
+    const orderAvailable = ["new", "old", "most-notes", "least-notes"];
 
     const skip = (page - 1) * limit;
     const totalData = await prisma.study.count();
 
-    const studies = await prisma.study.findMany({ take: limit, skip });
+    const sortByOrder = orderCondition[order] || orderCondition.new;
+
+    const studies = await prisma.study.findMany({ take: limit, skip, orderBy: sortByOrder });
+    const response = getPaginatedResponse(studies, page, limit, totalData, {
+      order: order || "new",
+      orderAvailable,
+    });
+
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const searchStudyByName: RequestHandler = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 5;
+    const name = req.query.name as string;
+
+    const skip = (page - 1) * limit;
+    const totalData = await prisma.study.count({ where: { name: { contains: name } } });
+
+    const studies = await prisma.study.findMany({
+      take: limit,
+      skip,
+      where: { name: { contains: name, mode: "insensitive" } },
+    });
+
     const response = getPaginatedResponse(studies, page, limit, totalData);
 
     res.json(response);

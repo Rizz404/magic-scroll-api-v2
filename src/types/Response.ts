@@ -12,4 +12,5 @@ export interface PaginationState {
 export interface PaginatedResponse<T> {
   paginationState: PaginationState;
   data: T[];
+  additionalInfo?: Record<string, any>;
 }
