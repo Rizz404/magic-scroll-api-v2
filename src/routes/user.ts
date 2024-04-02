@@ -6,6 +6,7 @@ import {
   getUserById,
   getUserProfile,
   getUsers,
+  searchUserByName,
   updateUser,
   updateUserProfile,
 } from "../controllers/user";
@@ -25,7 +26,8 @@ router
     updateUserProfile
   );
 router.post("/check-user-availability", checkUserAvailability);
-router.patch("/follow:userId", auth, followOrUnfollowUser);
+router.patch("/follow/:userId", auth, followOrUnfollowUser);
+router.get("/search", searchUserByName);
 router.patch("/change-role", auth, allowedRoles("ADMIN"), changeUserRole);
 router.route("/:userId").get(getUserById);
 

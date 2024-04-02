@@ -20,7 +20,8 @@ export const getPaginatedResponse = <T>(
   data: T[],
   page: number,
   limit: number,
-  totalData: number
+  totalData: number,
+  additionalInfo?: Record<string, any>
 ): PaginatedResponse<T> => {
   const totalPages = Math.ceil(totalData / limit);
   const startIndex = (page - 1) * limit + 1;
@@ -40,6 +41,7 @@ export const getPaginatedResponse = <T>(
   const paginatedResponse: PaginatedResponse<T> = {
     data,
     paginationState,
+    additionalInfo,
   };
 
   return paginatedResponse;

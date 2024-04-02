@@ -40,11 +40,39 @@ export const getUserProfile: RequestHandler = async (req, res) => {
 export const getUserById: RequestHandler = async (req, res) => {
   try {
     const { userId } = req.params;
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
     res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const searchUserByName: RequestHandler = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 5;
+    const username = req.query.username as string;
+
+    const skip = (page - 1) * limit;
+    const totalData = await prisma.user.count({
+      where: { username: { contains: username, mode: "insensitive" } },
+    });
+
+    const users = await prisma.user.findMany({
+      take: limit,
+      skip,
+      where: { username: { contains: username, mode: "insensitive" } },
+    });
+
+    const response = getPaginatedResponse(users, page, limit, totalData);
+
+    res.json(response);
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
   }

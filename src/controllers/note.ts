@@ -6,8 +6,14 @@ import {
   getPaginatedResponse,
 } from "../utils/express";
 import prisma from "../config/dbConfig";
-import { Note, Permission, Tag } from "@prisma/client";
+import { Note, Permission, Prisma, Tag } from "@prisma/client";
 import deleteFileFirebase from "../utils/firebase";
+import {
+  NoteCategories,
+  NoteOrders,
+  filterCategoryCondition,
+  orderCondition,
+} from "../constants/note";
 
 export const createNote: RequestHandler = async (req, res) => {
   try {
@@ -73,37 +79,34 @@ export const getNotes: RequestHandler = async (req, res) => {
     const userId = req.user?.id;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
+    const category = req.query.category as NoteCategories;
+    const order = req.query.order as NoteOrders;
+
+    const categoryAvailable = ["home", "shared", "private", "favorited", "saved", "self"];
+    const orderAvailable = ["best", "worst", "new", "old"];
+
+    // * Walaupun userId di function tidak required tetap harus masukin biar tidak error
+    const filterByCategory =
+      filterCategoryCondition(userId)[category] || filterCategoryCondition(userId).home;
+    const sortByOrder = orderCondition(userId)[order] || orderCondition(userId).new;
 
     const skip = (page - 1) * limit;
-    const totalData = await prisma.note.count({
-      where: {
-        OR: [
-          { isPrivate: false },
-          {
-            ...(userId && {
-              isPrivate: true,
-              OR: [{ userId }, { notePermission: { some: { userId } } }],
-            }),
-          },
-        ],
-      },
-    });
+    const totalData = await prisma.note.count({ where: filterByCategory });
 
     const notes = await prisma.note.findMany({
-      where: {
-        OR: [
-          { isPrivate: false },
-          {
-            ...(userId && {
-              isPrivate: true,
-              OR: [{ userId }, { notePermission: { some: { userId } } }],
-            }),
-          },
-        ],
-      },
+      where: filterByCategory,
+      orderBy: sortByOrder,
       take: limit,
       skip,
       include: {
+        user: {
+          select: {
+            username: true,
+            email: true,
+            isVerified: true,
+            profile: { select: { profileImage: true } },
+          },
+        },
         study: { select: { id: true, name: true, image: true } },
         tags: { select: { id: true, name: true } },
         ...(req.user &&
@@ -115,7 +118,70 @@ export const getNotes: RequestHandler = async (req, res) => {
           }),
       },
     });
-    const response = getPaginatedResponse(notes, page, limit, totalData);
+    const response = getPaginatedResponse(notes, page, limit, totalData, {
+      category: category || "home",
+      categoryAvailable,
+      order: order || "new",
+      orderAvailable,
+    });
+
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const getNotesByUserId: RequestHandler = async (req, res) => {
+  try {
+    const currentUserId = req.user?.id;
+    const { userId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const category = req.query.category as NoteCategories;
+    const order = req.query.order as NoteOrders;
+
+    const categoryAvailable = ["home", "shared"];
+    const orderAvailable = ["best", "worst", "new", "old"];
+
+    const filterByCategory =
+      filterCategoryCondition(currentUserId)[category] ||
+      filterCategoryCondition(currentUserId).home;
+    const sortByOrder = orderCondition(currentUserId)[order] || orderCondition(currentUserId).new;
+
+    const skip = (page - 1) * limit;
+    const totalData = await prisma.note.count({ where: { AND: [{ userId }, filterByCategory] } });
+
+    const notes = await prisma.note.findMany({
+      where: filterByCategory,
+      orderBy: sortByOrder,
+      take: limit,
+      skip,
+      include: {
+        user: {
+          select: {
+            username: true,
+            email: true,
+            isVerified: true,
+            profile: { select: { profileImage: true } },
+          },
+        },
+        study: { select: { id: true, name: true, image: true } },
+        tags: { select: { id: true, name: true } },
+        ...(currentUserId && {
+          noteInteraction: {
+            where: { userId: currentUserId },
+            select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
+          },
+        }),
+      },
+    });
+
+    const response = getPaginatedResponse(notes, page, limit, totalData, {
+      category: category || "home",
+      categoryAvailable,
+      order: order || "new",
+      orderAvailable,
+    });
 
     res.json(response);
   } catch (error) {
