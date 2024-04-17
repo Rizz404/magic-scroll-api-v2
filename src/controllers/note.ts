@@ -6,7 +6,7 @@ import {
   getPaginatedResponse,
 } from "../utils/express";
 import prisma from "../config/dbConfig";
-import { Note, Permission, Prisma, Tag } from "@prisma/client";
+import { Note, Tag } from "@prisma/client";
 import deleteFileFirebase from "../utils/firebase";
 import {
   NoteCategories,
@@ -72,6 +72,22 @@ export const createNote: RequestHandler = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
   }
+};
+
+export const addAttachmentsToNote: RequestHandler = async (req, res) => {
+  // try {
+  //   const { noteId } = req.params;
+  //   const attachments = req.files as FilesWithFirebase;
+  //   const addedAttachments = await prisma.note.update({
+  //     where: { id: noteId },
+  //     data: {
+  //       attachments: {push: attachments[0]}
+  //     },
+  //   });
+  //   res.status(201).json({ message: "Add attachments successful", data: addedAttachments });
+  // } catch (error) {
+  //   res.status(500).json({ message: getErrorMessage(error) });
+  // }
 };
 
 export const getNotes: RequestHandler = async (req, res) => {

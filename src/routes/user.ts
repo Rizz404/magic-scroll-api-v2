@@ -11,7 +11,7 @@ import {
   updateUserProfile,
 } from "../controllers/user";
 import { auth } from "../middleware/auth";
-import uploadTofirebase from "../middleware/uploadFile";
+import { uploadSingleToFirebase } from "../middleware/uploadFile";
 import allowedRoles from "../middleware/allowedRoles";
 
 const router = express.Router();
@@ -22,7 +22,7 @@ router
   .get(auth, getUserProfile)
   .patch(
     auth,
-    uploadTofirebase({ fieldname: "profileImage", uploadedToFolder: "user" }),
+    uploadSingleToFirebase({ fieldname: "profileImage", uploadToFolder: "user" }),
     updateUserProfile
   );
 router.post("/check-user-availability", checkUserAvailability);
