@@ -3,6 +3,7 @@ import { auth, optionalAuth } from "../middleware/auth";
 import {
   addAttachmentsToNote,
   createNote,
+  deleteMultipleAttachmentsInNote,
   downvoteNote,
   getNoteById,
   getNotes,
@@ -42,12 +43,14 @@ router
 
 router.get("/note-interactions/:noteId", auth, getUserNoteInteractionByNoteId);
 
-router.patch(
-  "/attachments/:noteId",
-  auth,
-  uploadArrayToFirebase({ fieldname: "attachments", maxFileCount: 10, uploadToFolder: "note" }),
-  addAttachmentsToNote
-);
+router
+  .route("/attachments/:noteId")
+  .post(
+    auth,
+    uploadArrayToFirebase({ fieldname: "attachments", maxFileCount: 10, uploadToFolder: "note" }),
+    addAttachmentsToNote
+  )
+  .patch(auth, deleteMultipleAttachmentsInNote);
 
 router
   .route("/:noteId")

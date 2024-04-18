@@ -3,6 +3,7 @@ import { RequestHandler } from "express";
 import { FileWithFirebase, getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
 import { StudyOrders, orderCondition } from "../constants/study";
+import deleteFileFirebase from "../utils/firebase";
 
 export const createStudy: RequestHandler = async (req, res) => {
   try {
@@ -86,10 +87,18 @@ export const updateStudy: RequestHandler = async (req, res) => {
     const { name, description }: Study = req.body;
     const image = req.file as FileWithFirebase;
 
+    const study = await prisma.study.findUnique({ where: { id: studyId } });
+
+    if (!study) return res.status(404).json({ message: "Study not found" });
+
     const updatedStudy = await prisma.study.update({
       where: { id: studyId },
       data: { name, description, ...(image && { image: image.firebaseUrl }) },
     });
+
+    if (study.image !== updatedStudy.image) {
+      deleteFileFirebase("study", study.image);
+    }
 
     res.json({ message: "Update study successful", data: updatedStudy });
   } catch (error) {

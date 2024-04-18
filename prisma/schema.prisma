@@ -1,18 +1,20 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"] // ! experimental
+  previewFeatures = ["driverAdapters", "fullTextSearch"] // ! experimental
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL_RAILWAY")
 }
 
+// * Inget string defaultnya adalah db.text
+
 model User {
-  id         String    @id @default(cuid())
-  username   String    @unique
-  email      String    @unique
-  password   String?
+  id         String    @id @default(cuid()) @db.VarChar(30)
+  username   String    @unique @db.VarChar(255)
+  email      String    @unique @db.VarChar(320)
+  password   String?   @db.VarChar(255)
   role       Roles     @default(USER)
   isOauth    Boolean
   lastLogin  DateTime?
@@ -25,18 +27,17 @@ model User {
   notePermission  NotePermission[]
   noteInteraction NoteInteraction[]
 
-  @@unique([username, email])
   @@index([username])
 }
 
 model Profile {
-  id           String   @id @default(cuid())
-  userId       String
-  firstName    String   @default("")
-  lastName     String   @default("")
-  profileImage String   @default("")
-  age          Int?
-  phone        String   @default("")
+  id           String   @id @default(cuid()) @db.VarChar(30)
+  userId       String   @unique @db.VarChar(30)
+  firstName    String   @default("") @db.VarChar(255)
+  lastName     String   @default("") @db.VarChar(255)
+  profileImage String   @default("") @db.VarChar(1024)
+  age          Int?     @db.SmallInt // * More small but fit for age field (they said)
+  phone        String   @default("") @db.VarChar(15)
   socialMedias String[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -45,35 +46,29 @@ model Profile {
   followers  Follow[] @relation("FollowerRelation")
   followings Follow[] @relation("FollowingRelation")
 
-  @@unique([userId])
   @@index([userId])
 }
 
 model Follow {
-  followerId  String
-  followingId String
+  followerId  String @unique @db.VarChar(30)
+  followingId String @unique @db.VarChar(30)
 
   follower  Profile @relation("FollowerRelation", fields: [followerId], references: [id])
   following Profile @relation("FollowingRelation", fields: [followingId], references: [id])
 
   @@id([followerId, followingId])
-  @@unique([followerId, followingId])
   @@index([followerId, followingId])
 }
 
 model Note {
-  id             String   @id @default(cuid())
-  userId         String
-  studyId        String
-  title          String
+  id             String   @id @default(cuid()) @db.VarChar(30)
+  userId         String   @db.VarChar(30)
+  studyId        String   @db.VarChar(30)
+  title          String   @db.VarChar(255)
   content        String
-  thumbnailImage String
+  thumbnailImage String   @db.VarChar(1024)
   attachments    String[]
   isPrivate      Boolean  @default(false)
-  upvotedCount   Int      @default(0)
-  downvotedCount Int      @default(0)
-  favoritedCount Int      @default(0)
-  savedCount     Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -87,8 +82,8 @@ model Note {
 }
 
 model NoteInteraction {
-  userId      String
-  noteId      String
+  userId      String  @unique @db.VarChar(30)
+  noteId      String  @unique @db.VarChar(30)
   isUpvoted   Boolean @default(false)
   isDownvoted Boolean @default(false)
   isFavorited Boolean @default(false)
@@ -98,14 +93,24 @@ model NoteInteraction {
   note Note @relation(fields: [noteId], references: [id])
 
   @@id([userId, noteId])
-  @@unique([userId, noteId])
   @@index([userId, noteId])
 }
 
+model NoteInteractionCounter {
+  noteId         String @unique @db.VarChar(30)
+  upvotedCount   Int    @default(0)
+  downvotedCount Int    @default(0)
+  favoritedCount Int    @default(0)
+  savedCount     Int    @default(0)
+
+  @@id([noteId])
+  @@index([noteId])
+}
+
 model NotePermission {
-  id         String     @id @default(cuid())
-  noteId     String
-  userId     String
+  id         String     @id @default(cuid()) @db.VarChar(30)
+  noteId     String     @unique @db.VarChar(30)
+  userId     String     @db.VarChar(30)
   permission Permission @default(READ)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
@@ -113,26 +118,24 @@ model NotePermission {
   note Note @relation(fields: [noteId], references: [id])
   user User @relation(fields: [userId], references: [id])
 
-  @@unique([noteId])
   @@index([noteId])
 }
 
 model Tag {
-  id          String   @id @default(cuid())
-  name        String
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  name        String   @unique @db.VarChar(255)
   description String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   notes Note[]
 
-  @@unique([name])
   @@index([name])
 }
 
 model Study {
-  id          String   @id @default(cuid())
-  name        String
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  name        String   @unique @db.VarChar(255)
   description String
   image       String   @default("https://i.pinimg.com/236x/a2/6a/27/a26a27a5ff6a2cb80d5b872a73d1413b.jpg")
   createdAt   DateTime @default(now())
@@ -140,7 +143,6 @@ model Study {
 
   notes Note[]
 
-  @@unique([name])
   @@index([name])
 }
 
