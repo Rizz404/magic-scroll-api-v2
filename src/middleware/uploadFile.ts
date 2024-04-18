@@ -3,89 +3,134 @@ import multer from "multer";
 import { bucket } from "../config/firebaseConfig";
 import { FileWithFirebase, FilesWithFirebase } from "../utils/express";
 
-interface UploadOptions {
+type FolderAvailable = "user" | "note" | "study";
+
+interface UploadSingleToFirebase {
   fieldname: string;
-  type?: "single" | "array";
   required?: boolean;
-  maxFileCount?: number;
-  uploadedToFolder: "user" | "note" | "study";
+  uploadToFolder: FolderAvailable;
 }
 
-const uploadTofirebase = ({
-  fieldname,
-  type = "single",
-  required = false,
-  maxFileCount,
-  uploadedToFolder,
-}: UploadOptions) => {
-  const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024 },
+interface UploadArrayToFirebase extends UploadSingleToFirebase {
+  maxFileCount?: number;
+}
+
+interface UploadFieldsToFirebase {
+  fields: UploadArrayToFirebase[];
+}
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+const handleUpload = async (file: FileWithFirebase, uploadToFolder: FolderAvailable) => {
+  // * Cuma masalah return next doang penyelesaian sampe berbulan-bulan
+  const mimeType = file.mimetype;
+  const folderName = getFolderNameFromMimeType(mimeType);
+
+  const fileName = `${uploadToFolder}/${folderName}/${Date.now()}_${file.originalname}`;
+  const fileUpload = bucket.file(fileName);
+
+  const blobStream = fileUpload.createWriteStream({
+    metadata: {
+      contentType: file.mimetype,
+    },
   });
 
-  const handleUpload = async (file: FileWithFirebase, next: NextFunction) => {
-    const mimeType = file.mimetype;
-    const folderName = getFolderNameFromMimeType(mimeType);
-
-    const fileName = `${uploadedToFolder}/${folderName}/${Date.now()}_${file.originalname}`;
-    const fileUpload = bucket.file(fileName);
-
-    const blobStream = fileUpload.createWriteStream({
-      metadata: {
-        contentType: file.mimetype,
-      },
+  const streamEnded = new Promise<void>((resolve, reject) => {
+    blobStream.on("error", reject);
+    blobStream.on("finish", () => {
+      file.firebaseUrl = `https://firebasestorage.googleapis.com/v0/b/${
+        bucket.name
+      }/o/${encodeURIComponent(fileName)}?alt=media`;
+      resolve();
     });
+  });
 
-    const streamEnded = new Promise<void>((resolve, reject) => {
-      blobStream.on("error", reject);
-      blobStream.on("finish", () => {
-        file.firebaseUrl = `https://firebasestorage.googleapis.com/v0/b/${
-          bucket.name
-        }/o/${encodeURIComponent(fileName)}?alt=media`;
-        resolve();
-      });
-    });
+  blobStream.end(file.buffer);
 
-    blobStream.end(file.buffer);
+  await streamEnded;
+};
 
-    await streamEnded;
-    next();
-  };
-
+const uploadSingleToFirebase = ({
+  fieldname,
+  required = false,
+  uploadToFolder,
+}: UploadSingleToFirebase) => {
   const uploadSingle = upload.single(fieldname);
-  const uploadArray = upload.array(fieldname, maxFileCount && maxFileCount);
 
-  if (type === "single" || type === undefined) {
-    return async (req: Request, res: Response, next: NextFunction) => {
-      uploadSingle(req, res, async (error) => {
-        if (error) return res.status(400).json({ message: error.message });
+  return async (req: Request, res: Response, next: NextFunction) => {
+    uploadSingle(req, res, async (error) => {
+      if (error) return res.status(400).json({ message: error.message });
 
-        const file = req.file as FileWithFirebase;
+      const file = req.file as FileWithFirebase;
 
-        if (required && !file) return res.status(400).json({ message: "File is required" });
+      if (required && !file) return res.status(400).json({ message: "File is required" });
 
-        if (!file) return next();
+      if (!file) return next();
 
-        await handleUpload(file, next);
-      });
-    };
-  } else {
-    return async (req: Request, res: Response, next: NextFunction) => {
-      uploadArray(req, res, async (error) => {
-        if (error) return res.status(400).json({ message: error.message });
+      await handleUpload(file, uploadToFolder);
 
-        const files = req.files as FilesWithFirebase;
+      next();
+    });
+  };
+};
 
-        if (required && (!files || files.length === 0)) {
-          return res.status(400).json({ message: "At least one file is required" });
-        }
+const uploadArrayToFirebase = ({
+  fieldname,
+  required = false,
+  uploadToFolder,
+  maxFileCount = 10,
+}: UploadArrayToFirebase) => {
+  const uploadArray = upload.array(fieldname, maxFileCount);
 
-        if (!files || !Array.isArray(files)) return next();
+  return async (req: Request, res: Response, next: NextFunction) => {
+    uploadArray(req, res, async (error) => {
+      if (error) return res.status(400).json({ message: error.message });
 
-        await Promise.all(files.map((file) => handleUpload(file, next)));
-      });
-    };
-  }
+      const files = req.files as FileWithFirebase[];
+
+      if (required && files.length === 0)
+        return res.status(400).json({ message: "At least one file is required" });
+
+      if (files.length === 0) return next();
+
+      await Promise.all(files.map((file) => handleUpload(file, uploadToFolder)));
+
+      next();
+    });
+  };
+};
+
+// todo: just let it go for a while
+const uploadFieldsToFirebase = ({ fields }: UploadFieldsToFirebase) => {
+  const uploadFields = upload.fields(
+    fields.map(({ fieldname, maxFileCount }) => ({ name: fieldname, maxCount: maxFileCount }))
+  );
+
+  return async (req: Request, res: Response, next: NextFunction) => {
+    uploadFields(req, res, async (error) => {
+      if (error) return res.status(400).json({ message: error.message });
+
+      await Promise.all(
+        fields.map(async ({ fieldname, required, uploadToFolder }) => {
+          // @ts-ignore
+          const files = req.files[fieldname] as FileWithFirebase[];
+
+          if (required && (!files || files.length === 0)) {
+            throw new Error(`At least one file is required for field ${fieldname}`);
+          }
+
+          if (!files || files.length === 0) return next();
+
+          await Promise.all(files.map((file) => handleUpload(file, uploadToFolder)));
+        })
+      );
+
+      next();
+    });
+  };
 };
 
 const getFolderNameFromMimeType = (mimeType: string): string => {
@@ -121,4 +166,4 @@ const getFolderNameFromMimeTypeList = (mimeType: string): string | undefined => 
   return mimeTypeList[mimeType];
 };
 
-export default uploadTofirebase;
+export { uploadSingleToFirebase, uploadArrayToFirebase, uploadFieldsToFirebase };

@@ -8,7 +8,7 @@ import {
   updateStudy,
 } from "../controllers/study";
 import allowedRoles from "../middleware/allowedRoles";
-import uploadTofirebase from "../middleware/uploadFile";
+import { uploadSingleToFirebase } from "../middleware/uploadFile";
 
 const router = express.Router();
 
@@ -17,7 +17,7 @@ router
   .post(
     auth,
     allowedRoles("ADMIN"),
-    uploadTofirebase({ fieldname: "image", uploadedToFolder: "study" }),
+    uploadSingleToFirebase({ fieldname: "image", uploadToFolder: "study" }),
     createStudy
   )
   .get(getStudies);
