@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 export type NoteCategories = "home" | "shared" | "private" | "favorited" | "saved" | "self";
-export type NoteOrders = "best" | "worst" | "new" | "old";
+export type NoteOrders = "new" | "old" | "best" | "worst";
 
 export const filterCategoryCondition = (
   currentUserId?: string
@@ -47,11 +47,11 @@ export const filterCategoryCondition = (
 
 export const orderCondition = (
   currentUserId?: string
-): Record<NoteOrders, Prisma.NoteOrderByWithRelationInput> => {
+): Record<NoteOrders, Prisma.NoteOrderByWithRelationAndSearchRelevanceInput> => {
   return {
-    best: { upvotedCount: "desc" },
-    worst: { downvotedCount: "desc" },
     new: { createdAt: "desc" },
     old: { createdAt: "asc" },
+    best: { noteInteractionCounter: { upvotedCount: "desc" } },
+    worst: { noteInteractionCounter: { downvotedCount: "desc" } },
   };
 };

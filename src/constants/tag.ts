@@ -2,7 +2,10 @@ import { Prisma } from "@prisma/client";
 
 export type TagOrders = "new" | "old" | "most-notes" | "least-notes";
 
-export const orderCondition: Record<TagOrders, Prisma.TagOrderByWithRelationInput> = {
+export const orderCondition: Record<
+  TagOrders,
+  Prisma.TagOrderByWithRelationAndSearchRelevanceInput
+> = {
   new: { createdAt: "desc" },
   old: { createdAt: "asc" },
   "most-notes": { notes: { _count: "desc" } },
