@@ -124,18 +124,6 @@ model NotePermission {
   @@index([noteId])
 }
 
-model Tag {
-  id          String   @id @default(cuid()) @db.VarChar(30)
-  name        String   @unique @db.VarChar(255)
-  description String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  notes Note[]
-
-  @@index([name])
-}
-
 model Study {
   id          String   @id @default(cuid()) @db.VarChar(30)
   name        String   @unique @db.VarChar(255)
@@ -144,6 +132,21 @@ model Study {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  notes Note[]
+  tag   Tag[]
+
+  @@index([name])
+}
+
+model Tag {
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  name        String   @unique @db.VarChar(255)
+  studyId     String   @db.VarChar(30)
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  study Study  @relation(fields: [studyId], references: [id])
   notes Note[]
 
   @@index([name])
