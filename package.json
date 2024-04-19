@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "nodemon --watch .env --watch src/**/*.ts src/index.ts",
     "start": "node dist/index.js",
-    "build": "prisma generate && tsc",
+    "build": "prisma generate --no-engine && tsc",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:generate": "prisma generate",
+    "prisma:generate@serverless": "prisma generate --no-engine",
     "prisma:push": "prisma db push",
     "prisma:flush": "ts-node ./src/seeder/dbFlush.ts",
     "prisma:user-seeder": "ts-node ./src/seeder/user.ts"
@@ -17,6 +18,8 @@
   "author": "Rizqiansyah Ramadhan",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^5.12.1",
+    "@prisma/extension-accelerate": "^1.0.0",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
@@ -24,18 +27,15 @@
     "dotenv": "^16.4.1",
     "express": "^4.18.2",
     "firebase-admin": "^12.0.0",
-    "google-auth-library": "^9.7.0",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "pg": "^8.11.3",
-    "prisma": "^5.10.2"
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "@faker-js/faker": "^8.4.1",
     "@prisma/adapter-pg": "^5.10.2",
-    "@prisma/client": "^5.10.2",
     "@types/bcrypt": "^5.0.2",
     "@types/body-parser": "^1.19.5",
     "@types/cookie-parser": "^1.4.6",
@@ -47,6 +47,7 @@
     "@types/node": "^20.11.15",
     "@types/pg": "^8.11.0",
     "nodemon": "^3.0.3",
+    "prisma": "^5.12.1",
     "ts-node": "^10.9.2",
     "tslib": "^2.6.2",
     "typescript": "^5.3.3"

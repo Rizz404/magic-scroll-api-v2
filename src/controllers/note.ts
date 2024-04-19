@@ -105,7 +105,7 @@ export const deleteMultipleAttachmentsInNote: RequestHandler = async (req, res) 
 
 export const getNotes: RequestHandler = async (req, res) => {
   try {
-    const userId = req.user?.id || null;
+    const userId = req.user?.id;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const category = req.query.category as NoteCategories;
@@ -139,6 +139,7 @@ export const getNotes: RequestHandler = async (req, res) => {
         study: { select: { id: true, name: true, image: true } },
         tags: { select: { id: true, name: true } },
       },
+      cacheStrategy: { ttl: 3600 },
     });
     const response = getPaginatedResponse(notes, page, limit, totalData, {
       category: category || "home",
@@ -155,7 +156,7 @@ export const getNotes: RequestHandler = async (req, res) => {
 
 export const getNotesByUserId: RequestHandler = async (req, res) => {
   try {
-    const currentUserId = req.user?.id || null;
+    const currentUserId = req.user?.id;
     const { userId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;

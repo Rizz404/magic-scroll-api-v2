@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL") // ! Nama env harus DATABASE_URL kalo ngak error
+  url      = env("DATABASE_URL_RAILWAY_ACCELERATED")
 }
 
 // * Inget string defaultnya adalah db.text
