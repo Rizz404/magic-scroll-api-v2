@@ -6,9 +6,11 @@ import { TagOrders, orderCondition } from "../constants/tag";
 
 export const createTag: RequestHandler = async (req, res) => {
   try {
-    const { name, description }: Tag = req.body;
+    const { name, description, studyId }: Tag = req.body;
 
-    const newTag = await prisma.tag.create({ data: { name, description } });
+    const newTag = await prisma.tag.create({
+      data: { name, description, studyId },
+    });
 
     res.status(201).json({ message: "Create tag successful", data: newTag });
   } catch (error) {
@@ -29,7 +31,12 @@ export const getTags: RequestHandler = async (req, res) => {
 
     const sortByOrder = orderCondition[order] || orderCondition.new;
 
-    const tags = await prisma.tag.findMany({ take: limit, skip, orderBy: sortByOrder });
+    const tags = await prisma.tag.findMany({
+      take: limit,
+      skip,
+      orderBy: sortByOrder,
+      include: { study: { select: { id: true, name: true, image: true } } },
+    });
     const response = getPaginatedResponse(tags, page, limit, totalData, {
       order: order || "new",
       orderAvailable,
@@ -44,7 +51,10 @@ export const getTags: RequestHandler = async (req, res) => {
 export const getTagById: RequestHandler = async (req, res) => {
   try {
     const { tagId } = req.params;
-    const tag = await prisma.tag.findUnique({ where: { id: tagId } });
+    const tag = await prisma.tag.findUnique({
+      where: { id: tagId },
+      include: { study: { select: { id: true, name: true, image: true } } },
+    });
 
     if (!tag) return res.status(404).json({ message: "Tag not found" });
 
@@ -67,6 +77,7 @@ export const searchTagByName: RequestHandler = async (req, res) => {
       take: limit,
       skip,
       where: { name: { contains: name, mode: "insensitive" } },
+      include: { study: { select: { id: true, name: true, image: true } } },
     });
 
     const response = getPaginatedResponse(tags, page, limit, totalData);

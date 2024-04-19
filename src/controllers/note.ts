@@ -40,18 +40,11 @@ export const createNote: RequestHandler = async (req, res) => {
         title,
         content,
         thumbnailImage: image ? image.firebaseUrl : randomImages[randomIndex],
-        isPrivate: isPrivateBool,
+        isPrivate: isPrivateBool ? isPrivateBool : false,
         notePermission: {
           create: { userId: id, permission: "READ_WRITE" },
         },
         tags: { connect: tagsParsed ? tagsParsed.map((tag: Tag) => ({ id: tag.id })) : [] },
-      },
-      include: {
-        study: true,
-        tags: true,
-        notePermission: {
-          include: { user: { select: { id: true, username: true, email: true } } },
-        },
       },
     });
 
