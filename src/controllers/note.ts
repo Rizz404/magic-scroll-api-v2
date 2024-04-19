@@ -105,7 +105,7 @@ export const deleteMultipleAttachmentsInNote: RequestHandler = async (req, res) 
 
 export const getNotes: RequestHandler = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.id || null;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const category = req.query.category as NoteCategories;
@@ -155,7 +155,7 @@ export const getNotes: RequestHandler = async (req, res) => {
 
 export const getNotesByUserId: RequestHandler = async (req, res) => {
   try {
-    const currentUserId = req.user?.id;
+    const currentUserId = req.user?.id || null;
     const { userId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
