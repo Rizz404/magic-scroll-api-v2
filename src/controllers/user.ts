@@ -3,18 +3,52 @@ import { getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
 import { Profile, User } from "@prisma/client";
 import { excludeFields } from "../utils/prisma";
+import { UserOrders, orderCondition } from "../constants/user";
+
+interface GetUsersQuery {
+  page: string;
+  limit: string;
+  order: UserOrders;
+  isVerified: boolean;
+  role: "ADMIN" | "USER";
+  auth: "Auth" | "Oauth";
+}
 
 export const getUsers: RequestHandler = async (req, res) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const userId = req.user?.id;
+    const { page, limit, order, isVerified, role, auth } = req.query as unknown as GetUsersQuery;
 
-    const skip = (page - 1) * limit;
-    const totalData = await prisma.user.count();
+    const pageConstant = parseInt(page) || 1;
+    const limitConstant = parseInt(limit) || 10;
+    const isVerifiedConstant = typeof isVerified === "boolean" ? isVerified : isVerified === "true";
+    const orderAvailable = ["new", "old"];
 
-    const users = await prisma.user.findMany({ take: limit, skip });
+    const orderBy = orderCondition(userId)[order] || orderCondition(userId).new;
+
+    const skip = (pageConstant - 1) * limitConstant;
+    const totalData = await prisma.user.count({
+      where: { isVerified: isVerifiedConstant, role, isOauth: auth === "Oauth" },
+    });
+
+    const users = await prisma.user.findMany({
+      where: { isVerified: isVerifiedConstant, role, isOauth: auth === "Oauth" },
+      orderBy,
+      take: limitConstant,
+      skip,
+    });
     const usersWithoutPassword = users.map((user) => excludeFields(user, ["password"]));
-    const response = getPaginatedResponse(usersWithoutPassword, page, limit, totalData);
+
+    const response = getPaginatedResponse(
+      usersWithoutPassword,
+      pageConstant,
+      limitConstant,
+      totalData,
+      {
+        order: order || "new",
+        orderAvailable,
+      }
+    );
 
     res.json(response);
   } catch (error) {
@@ -168,6 +202,8 @@ export const followOrUnfollowUser: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user!;
     const { userId } = req.params;
+
+    if (id === userId) return res.status(400).json({ message: "Can't follow yourself" });
 
     const isFollowing = await prisma.follow.findUnique({
       where: { followerId_followingId: { followerId: id, followingId: userId } },

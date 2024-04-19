@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL_RAILWAY")
+  url      = env("DATABASE_URL") // ! Nama env harus DATABASE_URL kalo ngak error
 }
 
 // * Inget string defaultnya adalah db.text
@@ -26,6 +26,8 @@ model User {
   notes           Note[]
   notePermission  NotePermission[]
   noteInteraction NoteInteraction[]
+  followers       Follow[]          @relation("FollowerRelation")
+  followings      Follow[]          @relation("FollowingRelation")
 
   @@index([username])
 }
@@ -42,9 +44,7 @@ model Profile {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user       User     @relation(fields: [userId], references: [id])
-  followers  Follow[] @relation("FollowerRelation")
-  followings Follow[] @relation("FollowingRelation")
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -53,8 +53,8 @@ model Follow {
   followerId  String @unique @db.VarChar(30)
   followingId String @unique @db.VarChar(30)
 
-  follower  Profile @relation("FollowerRelation", fields: [followerId], references: [id])
-  following Profile @relation("FollowingRelation", fields: [followingId], references: [id])
+  follower  User @relation("FollowerRelation", fields: [followerId], references: [id])
+  following User @relation("FollowingRelation", fields: [followingId], references: [id])
 
   @@id([followerId, followingId])
   @@index([followerId, followingId])
@@ -72,11 +72,12 @@ model Note {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user            User              @relation(fields: [userId], references: [id])
-  study           Study             @relation(fields: [studyId], references: [id])
-  tags            Tag[]
-  notePermission  NotePermission[]
-  noteInteraction NoteInteraction[]
+  user                   User                    @relation(fields: [userId], references: [id])
+  study                  Study                   @relation(fields: [studyId], references: [id])
+  tags                   Tag[]
+  notePermission         NotePermission[]
+  noteInteraction        NoteInteraction[]
+  noteInteractionCounter NoteInteractionCounter?
 
   @@index([userId, studyId, title])
 }
@@ -103,6 +104,8 @@ model NoteInteractionCounter {
   favoritedCount Int    @default(0)
   savedCount     Int    @default(0)
 
+  note Note @relation(fields: [noteId], references: [id])
+
   @@id([noteId])
   @@index([noteId])
 }
@@ -121,18 +124,6 @@ model NotePermission {
   @@index([noteId])
 }
 
-model Tag {
-  id          String   @id @default(cuid()) @db.VarChar(30)
-  name        String   @unique @db.VarChar(255)
-  description String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  notes Note[]
-
-  @@index([name])
-}
-
 model Study {
   id          String   @id @default(cuid()) @db.VarChar(30)
   name        String   @unique @db.VarChar(255)
@@ -141,6 +132,21 @@ model Study {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  notes Note[]
+  tag   Tag[]
+
+  @@index([name])
+}
+
+model Tag {
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  name        String   @unique @db.VarChar(255)
+  studyId     String   @db.VarChar(30)
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  study Study  @relation(fields: [studyId], references: [id])
   notes Note[]
 
   @@index([name])

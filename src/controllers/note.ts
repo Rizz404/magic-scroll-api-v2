@@ -18,12 +18,10 @@ import {
 export const createNote: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user!;
-    const { studyId, title, content, isPrivate, notePermission, tags } = req.body;
+    const { studyId, title, content, isPrivate, tags } = req.body;
     const image = req.file as FileWithFirebase;
 
     const isPrivateBool = typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
-    const notePermissionParsed =
-      typeof notePermission === "string" ? JSON.parse(notePermission) : notePermission;
     const tagsParsed = typeof tags === "string" ? JSON.parse(tags) : tags;
 
     const randomImages = [
@@ -42,24 +40,11 @@ export const createNote: RequestHandler = async (req, res) => {
         title,
         content,
         thumbnailImage: image ? image.firebaseUrl : randomImages[randomIndex],
-        isPrivate: isPrivateBool,
+        isPrivate: isPrivateBool ? isPrivateBool : false,
         notePermission: {
-          create:
-            isPrivateBool && notePermissionParsed && notePermissionParsed.length > 0
-              ? notePermissionParsed.map((note: Note) => ({
-                  userId: note.userId,
-                  permission: "READ",
-                }))
-              : undefined,
+          create: { userId: id, permission: "READ_WRITE" },
         },
         tags: { connect: tagsParsed ? tagsParsed.map((tag: Tag) => ({ id: tag.id })) : [] },
-      },
-      include: {
-        study: true,
-        tags: true,
-        notePermission: {
-          include: { user: { select: { id: true, username: true, email: true } } },
-        },
       },
     });
 
@@ -127,7 +112,7 @@ export const getNotes: RequestHandler = async (req, res) => {
     const order = req.query.order as NoteOrders;
 
     const categoryAvailable = ["home", "shared", "private", "favorited", "saved", "self"];
-    const orderAvailable = ["best", "worst", "new", "old"];
+    const orderAvailable = ["new", "old", "best", "worst"];
 
     // * Walaupun userId di function tidak required tetap harus masukin biar tidak error
     const filterByCategory =
@@ -153,13 +138,6 @@ export const getNotes: RequestHandler = async (req, res) => {
         },
         study: { select: { id: true, name: true, image: true } },
         tags: { select: { id: true, name: true } },
-        ...(req.user &&
-          userId && {
-            noteInteraction: {
-              where: { userId },
-              select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
-            },
-          }),
       },
     });
     const response = getPaginatedResponse(notes, page, limit, totalData, {
@@ -243,26 +221,24 @@ export const getNoteById: RequestHandler = async (req, res) => {
         OR: [
           { isPrivate: false },
           {
-            ...(userId && {
-              isPrivate: true,
-              OR: [{ userId }, { notePermission: { some: { userId } } }],
-            }),
+            ...(userId && { notePermission: { some: { userId } } }),
           },
         ],
       },
       include: {
         study: true,
         tags: true,
+        user: {
+          select: {
+            username: true,
+            email: true,
+            isVerified: true,
+            profile: { select: { profileImage: true } },
+          },
+        },
         notePermission: {
           include: { user: { select: { id: true, username: true, email: true } } },
         },
-        ...(req.user &&
-          userId && {
-            noteInteraction: {
-              where: { userId },
-              select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
-            },
-          }),
       },
     });
 
@@ -293,8 +269,6 @@ export const updateNote: RequestHandler = async (req, res) => {
       return res.status(403).json({ message: "You don't have permission to update this note" });
     }
 
-    const note = await prisma.note.findUnique({ where: { id: noteId } });
-
     const updatedNote = await prisma.note.update({
       where: { id: noteId },
       data: {
@@ -308,7 +282,9 @@ export const updateNote: RequestHandler = async (req, res) => {
     });
 
     if (updatedNote.isPrivate === false) {
-      await prisma.notePermission.deleteMany({ where: { noteId: updatedNote.id } });
+      await prisma.notePermission.deleteMany({
+        where: { noteId: updatedNote.id, permission: "READ" },
+      });
     }
 
     res.json({ message: "Update note successful", data: updatedNote });
@@ -316,6 +292,34 @@ export const updateNote: RequestHandler = async (req, res) => {
     res.status(500).json({ message: getErrorMessage(error) });
   }
 };
+
+// type interaction = "upvote" | "downvote" | "favorite" | "save";
+
+// export const noteInteractionHandler = (interaction: interaction) => {
+//   const interactionBoolean: Record<interaction, string> = {
+//     upvote: "isUpvoted",
+//     downvote: "isDownvoted",
+//     favorite: "isFavorited",
+//     save: "isSaved",
+//   };
+
+//   const interactionOperation: RequestHandler = async (req, res) => {
+//     try {
+//       const { id } = req.user!;
+//       const { noteId } = req.params;
+
+//       const existingVoteInteraction = await prisma.noteInteraction.findUnique({
+//         where: { userId_noteId: { userId: id, noteId } },
+//       });
+
+//       const existingState = existingVoteInteraction?.[interactionBoolean[interaction]] === true;
+//     } catch (error) {
+//       res.status(500).json({ message: getErrorMessage(error) });
+//     }
+//   };
+
+//   return interactionOperation;
+// };
 
 export const upvoteNote: RequestHandler = async (req, res) => {
   try {
@@ -336,7 +340,10 @@ export const upvoteNote: RequestHandler = async (req, res) => {
           data: { userId: id, noteId, isUpvoted: true },
         });
 
-        await tx.note.update({ where: { id: noteId }, data: { upvotedCount: { increment: 1 } } });
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
+          data: { upvotedCount: { increment: 1 } },
+        });
 
         return newInteraction;
       });
@@ -351,8 +358,8 @@ export const upvoteNote: RequestHandler = async (req, res) => {
           data: { isUpvoted: true, isDownvoted: false },
         });
 
-        await tx.note.update({
-          where: { id: noteId },
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
           data: {
             upvotedCount: { increment: 1 },
             downvotedCount: { decrement: existingVoteInteraction.isDownvoted ? 1 : 0 },
@@ -368,7 +375,10 @@ export const upvoteNote: RequestHandler = async (req, res) => {
           data: { isUpvoted: false },
         });
 
-        await tx.note.update({ where: { id: noteId }, data: { upvotedCount: { decrement: 1 } } });
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
+          data: { upvotedCount: { decrement: 1 } },
+        });
 
         return updatedInteraction;
       });
@@ -402,8 +412,8 @@ export const downvoteNote: RequestHandler = async (req, res) => {
           data: { userId: id, noteId, isDownvoted: true },
         });
 
-        await tx.note.update({
-          where: { id: noteId },
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
           data: { downvotedCount: { increment: 1 } },
         });
 
@@ -420,8 +430,8 @@ export const downvoteNote: RequestHandler = async (req, res) => {
           data: { isDownvoted: true, isUpvoted: false },
         });
 
-        await tx.note.update({
-          where: { id: noteId },
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
           data: {
             downvotedCount: { increment: 1 },
             upvotedCount: { decrement: existingVoteInteraction.isUpvoted ? 1 : 0 },
@@ -437,7 +447,10 @@ export const downvoteNote: RequestHandler = async (req, res) => {
           data: { isDownvoted: false },
         });
 
-        await tx.note.update({ where: { id: noteId }, data: { downvotedCount: { decrement: 1 } } });
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
+          data: { downvotedCount: { decrement: 1 } },
+        });
 
         return updatedInteraction;
       });
@@ -471,7 +484,10 @@ export const makeNoteFavorite: RequestHandler = async (req, res) => {
           data: { userId: id, noteId, isFavorited: true },
         });
 
-        await tx.note.update({ where: { id: noteId }, data: { favoritedCount: { increment: 1 } } });
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
+          data: { favoritedCount: { increment: 1 } },
+        });
 
         return newInteraction;
       });
@@ -486,7 +502,10 @@ export const makeNoteFavorite: RequestHandler = async (req, res) => {
           data: { isFavorited: true },
         });
 
-        await tx.note.update({ where: { id: noteId }, data: { favoritedCount: { increment: 1 } } });
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
+          data: { favoritedCount: { increment: 1 } },
+        });
 
         return updatedInteraction;
       });
@@ -497,7 +516,10 @@ export const makeNoteFavorite: RequestHandler = async (req, res) => {
           data: { isFavorited: false },
         });
 
-        await tx.note.update({ where: { id: noteId }, data: { favoritedCount: { decrement: 1 } } });
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
+          data: { favoritedCount: { decrement: 1 } },
+        });
 
         return updatedInteraction;
       });
@@ -531,7 +553,10 @@ export const saveNote: RequestHandler = async (req, res) => {
           data: { userId: id, noteId, isSaved: true },
         });
 
-        await tx.note.update({ where: { id: noteId }, data: { savedCount: { increment: 1 } } });
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
+          data: { savedCount: { increment: 1 } },
+        });
 
         return newInteraction;
       });
@@ -546,7 +571,10 @@ export const saveNote: RequestHandler = async (req, res) => {
           data: { isSaved: true },
         });
 
-        await tx.note.update({ where: { id: noteId }, data: { savedCount: { increment: 1 } } });
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
+          data: { savedCount: { increment: 1 } },
+        });
 
         return updatedInteraction;
       });
@@ -557,7 +585,10 @@ export const saveNote: RequestHandler = async (req, res) => {
           data: { isSaved: false },
         });
 
-        await tx.note.update({ where: { id: noteId }, data: { savedCount: { decrement: 1 } } });
+        await tx.noteInteractionCounter.update({
+          where: { noteId },
+          data: { savedCount: { decrement: 1 } },
+        });
 
         return updatedInteraction;
       });
