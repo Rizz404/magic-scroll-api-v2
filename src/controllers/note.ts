@@ -45,6 +45,7 @@ export const createNote: RequestHandler = async (req, res) => {
           create: { userId: id, permission: "READ_WRITE" },
         },
         tags: { connect: tagsParsed ? tagsParsed.map((tag: Tag) => ({ id: tag.id })) : [] },
+        noteInteractionCounter: { create: {} },
       },
     });
 

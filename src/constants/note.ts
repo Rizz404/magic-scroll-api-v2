@@ -7,41 +7,41 @@ export const filterCategoryCondition = (
   currentUserId?: string
 ): Record<NoteCategories, Prisma.NoteWhereInput> => {
   return {
-    home: {
-      OR: [
-        { isPrivate: false },
-        {
-          ...(currentUserId && {
-            isPrivate: true,
-            OR: [
-              { userId: currentUserId },
-              { notePermission: { some: { userId: currentUserId } } },
-            ],
-          }),
+    home: !currentUserId
+      ? { isPrivate: false }
+      : {
+          OR: [
+            { isPrivate: false },
+            {
+              isPrivate: true,
+              userId: currentUserId,
+            },
+            {
+              userId: { not: currentUserId },
+              notePermission: { some: { userId: currentUserId } },
+            },
+            {
+              userId: currentUserId,
+              notePermission: { some: { userId: { not: currentUserId } } },
+            },
+          ],
         },
-      ],
-    },
-    private: {
-      ...(currentUserId
-        ? { OR: [{ isPrivate: true }, { notePermission: { some: { userId: currentUserId } } }] }
-        : { id: { equals: "unreachable" } }), // ! biar kaga nampilin apa-apa kalau user kaga login
-    },
-    shared: {
-      ...(currentUserId
-        ? { notePermission: { some: { userId: currentUserId } } }
-        : { id: { equals: "unreachable" } }),
-    },
-    self: { ...(currentUserId ? { userId: currentUserId } : { id: { equals: "unreachable" } }) },
-    favorited: {
-      ...(currentUserId
-        ? { noteInteraction: { some: { userId: currentUserId, isFavorited: true } } }
-        : { id: { equals: "unreachable" } }),
-    },
-    saved: {
-      ...(currentUserId
-        ? { noteInteraction: { some: { userId: currentUserId, isSaved: true } } }
-        : { id: { equals: "unreachable" } }),
-    },
+    private: currentUserId ? { isPrivate: true, userId: currentUserId } : { id: "unreachable" },
+    shared: currentUserId
+      ? {
+          OR: [
+            { userId: { not: currentUserId }, notePermission: { some: { userId: currentUserId } } },
+            { userId: currentUserId, notePermission: { some: { userId: { not: currentUserId } } } },
+          ],
+        }
+      : { id: "unreachable" },
+    self: currentUserId ? { userId: currentUserId } : { id: "unreachable" },
+    favorited: currentUserId
+      ? { noteInteraction: { some: { userId: currentUserId, isFavorited: true } } }
+      : { id: "unreachable" },
+    saved: currentUserId
+      ? { noteInteraction: { some: { userId: currentUserId, isSaved: true } } }
+      : { id: "unreachable" },
   };
 };
 

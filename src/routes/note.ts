@@ -22,6 +22,7 @@ import {
   getNotePermissionsFromNote,
 } from "../controllers/notePermission";
 import { getUserNoteInteractionByNoteId } from "../controllers/noteInteraction";
+import { getNoteInteractionCounter } from "../controllers/noteInteractionCounter";
 
 const router = express.Router();
 
@@ -43,7 +44,8 @@ router
   .post(auth, addNotePermission)
   .get(getNotePermissionsFromNote)
   .patch(auth, changeNotePermission);
-router.get("/note-interactions/:noteId", auth, getUserNoteInteractionByNoteId);
+router.get("/note-interaction/counter/:noteId", getNoteInteractionCounter);
+router.get("/note-interaction/:noteId", auth, getUserNoteInteractionByNoteId);
 
 router.get("/user/:userId", optionalAuth, getNotesByUserId);
 router.get("/study/:studyName", optionalAuth, getNotesByStudyName);
