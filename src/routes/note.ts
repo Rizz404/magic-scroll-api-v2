@@ -7,6 +7,9 @@ import {
   downvoteNote,
   getNoteById,
   getNotes,
+  getNotesByStudyName,
+  getNotesByTagName,
+  getNotesByUserId,
   makeNoteFavorite,
   saveNote,
   updateNote,
@@ -40,8 +43,11 @@ router
   .post(auth, addNotePermission)
   .get(getNotePermissionsFromNote)
   .patch(auth, changeNotePermission);
-
 router.get("/note-interactions/:noteId", auth, getUserNoteInteractionByNoteId);
+
+router.get("/user/:userId", optionalAuth, getNotesByUserId);
+router.get("/study/:studyName", optionalAuth, getNotesByStudyName);
+router.get("/tag/:tagName", optionalAuth, getNotesByTagName);
 
 router
   .route("/attachments/:noteId")

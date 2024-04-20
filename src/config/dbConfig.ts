@@ -8,6 +8,7 @@ import { Pool } from "pg";
 // const connectionString = process.env.DATABASE_URL;
 // const poll = new Pool({ connectionString });
 // const adapter = new PrismaPg(poll);
+// ? Figure it out later okay?
 const prisma = new PrismaClient().$extends(withAccelerate());
 
 export default prisma;
