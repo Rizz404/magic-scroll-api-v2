@@ -105,7 +105,7 @@ export const deleteMultipleAttachmentsInNote: RequestHandler = async (req, res) 
 
 export const getNotes: RequestHandler = async (req, res) => {
   try {
-    const userId = req.user?.id || null;
+    const userId = req.user?.id;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const category = req.query.category as NoteCategories;
@@ -155,7 +155,7 @@ export const getNotes: RequestHandler = async (req, res) => {
 
 export const getNotesByUserId: RequestHandler = async (req, res) => {
   try {
-    const currentUserId = req.user?.id || null;
+    const currentUserId = req.user?.id;
     const { userId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
@@ -174,7 +174,7 @@ export const getNotesByUserId: RequestHandler = async (req, res) => {
     const totalData = await prisma.note.count({ where: { AND: [{ userId }, filterByCategory] } });
 
     const notes = await prisma.note.findMany({
-      where: filterByCategory,
+      where: { AND: [{ userId }, filterByCategory] },
       orderBy: sortByOrder,
       take: limit,
       skip,
@@ -201,6 +201,108 @@ export const getNotesByUserId: RequestHandler = async (req, res) => {
     const response = getPaginatedResponse(notes, page, limit, totalData, {
       category: category || "home",
       categoryAvailable,
+      order: order || "new",
+      orderAvailable,
+    });
+
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const getNotesByStudyName: RequestHandler = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { studyName } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const order = req.query.order as NoteOrders;
+
+    const sortByOrder = orderCondition(userId)[order] || orderCondition(userId).new;
+
+    const orderAvailable = ["new", "old", "best"];
+
+    const skip = (page - 1) * limit;
+    const totalData = await prisma.note.count({ where: { study: { name: studyName } } });
+
+    const notes = await prisma.note.findMany({
+      where: { study: { name: studyName } },
+      orderBy: sortByOrder,
+      take: limit,
+      skip,
+      include: {
+        user: {
+          select: {
+            username: true,
+            email: true,
+            isVerified: true,
+            profile: { select: { profileImage: true } },
+          },
+        },
+        study: { select: { id: true, name: true, image: true } },
+        tags: { select: { id: true, name: true } },
+        ...(userId && {
+          noteInteraction: {
+            where: { userId: userId },
+            select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
+          },
+        }),
+      },
+    });
+
+    const response = getPaginatedResponse(notes, page, limit, totalData, {
+      order: order || "new",
+      orderAvailable,
+    });
+
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const getNotesByTagName: RequestHandler = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { tagName } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const order = req.query.order as NoteOrders;
+
+    const sortByOrder = orderCondition(userId)[order] || orderCondition(userId).new;
+
+    const orderAvailable = ["new", "old", "best"];
+
+    const skip = (page - 1) * limit;
+    const totalData = await prisma.note.count({ where: { tags: { some: { name: tagName } } } });
+
+    const notes = await prisma.note.findMany({
+      where: { tags: { some: { name: tagName } } },
+      orderBy: sortByOrder,
+      take: limit,
+      skip,
+      include: {
+        user: {
+          select: {
+            username: true,
+            email: true,
+            isVerified: true,
+            profile: { select: { profileImage: true } },
+          },
+        },
+        study: { select: { id: true, name: true, image: true } },
+        tags: { select: { id: true, name: true } },
+        ...(userId && {
+          noteInteraction: {
+            where: { userId: userId },
+            select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
+          },
+        }),
+      },
+    });
+
+    const response = getPaginatedResponse(notes, page, limit, totalData, {
       order: order || "new",
       orderAvailable,
     });

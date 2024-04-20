@@ -4,7 +4,7 @@ export type NoteCategories = "home" | "shared" | "private" | "favorited" | "save
 export type NoteOrders = "new" | "old" | "best" | "worst";
 
 export const filterCategoryCondition = (
-  currentUserId: string | null
+  currentUserId?: string
 ): Record<NoteCategories, Prisma.NoteWhereInput> => {
   return {
     home: {
@@ -46,7 +46,7 @@ export const filterCategoryCondition = (
 };
 
 export const orderCondition = (
-  currentUserId: string | null
+  currentUserId?: string
 ): Record<NoteOrders, Prisma.NoteOrderByWithRelationAndSearchRelevanceInput> => {
   return {
     new: { createdAt: "desc" },
