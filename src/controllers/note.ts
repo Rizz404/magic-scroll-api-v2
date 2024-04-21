@@ -6,7 +6,7 @@ import {
   getPaginatedResponse,
 } from "../utils/express";
 import prisma from "../config/dbConfig";
-import { Note, Tag } from "@prisma/client";
+import { Tag } from "@prisma/client";
 import deleteFileFirebase from "../utils/firebase";
 import {
   NoteCategories,
@@ -14,6 +14,7 @@ import {
   filterCategoryCondition,
   orderCondition,
 } from "../constants/note";
+import { getNotesFunction } from "../utils/noteUtils";
 
 export const createNote: RequestHandler = async (req, res) => {
   try {
@@ -123,38 +124,14 @@ export const getNotes: RequestHandler = async (req, res) => {
     const skip = (page - 1) * limit;
     const totalData = await prisma.note.count({ where: filterByCategory });
 
-    const notes = await prisma.note.findMany({
+    const notes = await getNotesFunction({
       where: filterByCategory,
       orderBy: sortByOrder,
-      take: limit,
+      limit,
       skip,
-      include: {
-        user: {
-          select: {
-            username: true,
-            email: true,
-            isVerified: true,
-            profile: { select: { profileImage: true } },
-          },
-        },
-        study: { select: { id: true, name: true, image: true } },
-        tags: { select: { id: true, name: true } },
-        ...(userId && {
-          noteInteraction: {
-            where: { userId: userId },
-            select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
-          },
-        }),
-        noteInteractionCounter: {
-          select: {
-            upvotedCount: true,
-            downvotedCount: true,
-            favoritedCount: true,
-            savedCount: true,
-          },
-        },
-      },
+      userId,
     });
+
     const response = getPaginatedResponse(notes, page, limit, totalData, {
       category: category || "home",
       categoryAvailable,
@@ -188,37 +165,12 @@ export const getNotesByUserId: RequestHandler = async (req, res) => {
     const skip = (page - 1) * limit;
     const totalData = await prisma.note.count({ where: { AND: [{ userId }, filterByCategory] } });
 
-    const notes = await prisma.note.findMany({
+    const notes = await getNotesFunction({
       where: { AND: [{ userId }, filterByCategory] },
       orderBy: sortByOrder,
-      take: limit,
+      limit,
       skip,
-      include: {
-        user: {
-          select: {
-            username: true,
-            email: true,
-            isVerified: true,
-            profile: { select: { profileImage: true } },
-          },
-        },
-        study: { select: { id: true, name: true, image: true } },
-        tags: { select: { id: true, name: true } },
-        ...(currentUserId && {
-          noteInteraction: {
-            where: { userId: currentUserId },
-            select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
-          },
-        }),
-        noteInteractionCounter: {
-          select: {
-            upvotedCount: true,
-            downvotedCount: true,
-            favoritedCount: true,
-            savedCount: true,
-          },
-        },
-      },
+      userId,
     });
 
     const response = getPaginatedResponse(notes, page, limit, totalData, {
@@ -249,37 +201,12 @@ export const getNotesByStudyName: RequestHandler = async (req, res) => {
     const skip = (page - 1) * limit;
     const totalData = await prisma.note.count({ where: { study: { name: studyName } } });
 
-    const notes = await prisma.note.findMany({
+    const notes = await getNotesFunction({
       where: { study: { name: studyName } },
       orderBy: sortByOrder,
-      take: limit,
+      limit,
       skip,
-      include: {
-        user: {
-          select: {
-            username: true,
-            email: true,
-            isVerified: true,
-            profile: { select: { profileImage: true } },
-          },
-        },
-        study: { select: { id: true, name: true, image: true } },
-        tags: { select: { id: true, name: true } },
-        ...(userId && {
-          noteInteraction: {
-            where: { userId: userId },
-            select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
-          },
-        }),
-        noteInteractionCounter: {
-          select: {
-            upvotedCount: true,
-            downvotedCount: true,
-            favoritedCount: true,
-            savedCount: true,
-          },
-        },
-      },
+      userId,
     });
 
     const response = getPaginatedResponse(notes, page, limit, totalData, {
@@ -308,37 +235,12 @@ export const getNotesByTagName: RequestHandler = async (req, res) => {
     const skip = (page - 1) * limit;
     const totalData = await prisma.note.count({ where: { tags: { some: { name: tagName } } } });
 
-    const notes = await prisma.note.findMany({
+    const notes = await getNotesFunction({
       where: { tags: { some: { name: tagName } } },
       orderBy: sortByOrder,
-      take: limit,
+      limit,
       skip,
-      include: {
-        user: {
-          select: {
-            username: true,
-            email: true,
-            isVerified: true,
-            profile: { select: { profileImage: true } },
-          },
-        },
-        study: { select: { id: true, name: true, image: true } },
-        tags: { select: { id: true, name: true } },
-        ...(userId && {
-          noteInteraction: {
-            where: { userId: userId },
-            select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
-          },
-        }),
-        noteInteractionCounter: {
-          select: {
-            upvotedCount: true,
-            downvotedCount: true,
-            favoritedCount: true,
-            savedCount: true,
-          },
-        },
-      },
+      userId,
     });
 
     const response = getPaginatedResponse(notes, page, limit, totalData, {
