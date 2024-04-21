@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL_RAILWAY_ACCELERATED")
+  url      = env("DATABASE_URL")
 }
 
 // * Inget string defaultnya adalah db.text
@@ -83,8 +83,8 @@ model Note {
 }
 
 model NoteInteraction {
-  userId      String  @unique @db.VarChar(30)
-  noteId      String  @unique @db.VarChar(30)
+  userId      String  @db.VarChar(30)
+  noteId      String  @db.VarChar(30)
   isUpvoted   Boolean @default(false)
   isDownvoted Boolean @default(false)
   isFavorited Boolean @default(false)
