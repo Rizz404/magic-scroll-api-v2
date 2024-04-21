@@ -139,6 +139,20 @@ export const getNotes: RequestHandler = async (req, res) => {
         },
         study: { select: { id: true, name: true, image: true } },
         tags: { select: { id: true, name: true } },
+        ...(userId && {
+          noteInteraction: {
+            where: { userId: userId },
+            select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
+          },
+        }),
+        noteInteractionCounter: {
+          select: {
+            upvotedCount: true,
+            downvotedCount: true,
+            favoritedCount: true,
+            savedCount: true,
+          },
+        },
       },
     });
     const response = getPaginatedResponse(notes, page, limit, totalData, {
@@ -196,6 +210,14 @@ export const getNotesByUserId: RequestHandler = async (req, res) => {
             select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
           },
         }),
+        noteInteractionCounter: {
+          select: {
+            upvotedCount: true,
+            downvotedCount: true,
+            favoritedCount: true,
+            savedCount: true,
+          },
+        },
       },
     });
 
@@ -249,6 +271,14 @@ export const getNotesByStudyName: RequestHandler = async (req, res) => {
             select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
           },
         }),
+        noteInteractionCounter: {
+          select: {
+            upvotedCount: true,
+            downvotedCount: true,
+            favoritedCount: true,
+            savedCount: true,
+          },
+        },
       },
     });
 
@@ -300,6 +330,14 @@ export const getNotesByTagName: RequestHandler = async (req, res) => {
             select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
           },
         }),
+        noteInteractionCounter: {
+          select: {
+            upvotedCount: true,
+            downvotedCount: true,
+            favoritedCount: true,
+            savedCount: true,
+          },
+        },
       },
     });
 
@@ -341,6 +379,20 @@ export const getNoteById: RequestHandler = async (req, res) => {
         },
         notePermission: {
           include: { user: { select: { id: true, username: true, email: true } } },
+        },
+        ...(userId && {
+          noteInteraction: {
+            where: { userId: userId },
+            select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
+          },
+        }),
+        noteInteractionCounter: {
+          select: {
+            upvotedCount: true,
+            downvotedCount: true,
+            favoritedCount: true,
+            savedCount: true,
+          },
         },
       },
     });
