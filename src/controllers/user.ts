@@ -1,5 +1,5 @@
 import { RequestHandler } from "express";
-import { getErrorMessage, getPaginatedResponse } from "../utils/express";
+import { FileWithFirebase, getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
 import { Profile, User } from "@prisma/client";
 import { excludeFields } from "../utils/prisma";
@@ -174,18 +174,19 @@ export const updateUser: RequestHandler = async (req, res) => {
 export const updateUserProfile: RequestHandler = async (req, res) => {
   try {
     const { profileId } = req.user!;
-    const {
-      firstName,
-      lastName,
-      profileImage: profileImageString,
-      age,
-      phone,
-      socialMedias,
-    }: Profile = req.body;
+    const image = req.file as FileWithFirebase;
+
+    const { firstName, lastName, age, phone } = req.body;
 
     const updatedUserProfile = await prisma.profile.update({
       where: { id: profileId },
-      data: { firstName, lastName, profileImage: profileImageString, age, phone, socialMedias },
+      data: {
+        firstName,
+        lastName,
+        ...(image && { profileImage: image.firebaseUrl }),
+        age: typeof age === "string" ? parseInt(age) : age,
+        phone,
+      },
     });
 
     if (!updatedUserProfile) {
