@@ -40,7 +40,7 @@ model Profile {
   profileImage String   @default("") @db.VarChar(1024)
   age          Int?     @db.SmallInt // * More small but fit for age field (they said)
   phone        String   @default("") @db.VarChar(15)
-  socialMedias String[]
+  // socialMedias String[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
