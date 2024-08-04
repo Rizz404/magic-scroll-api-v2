@@ -19,7 +19,9 @@ const router = express.Router();
 
 app.use(bodyParser.json({ limit: "30mb" }));
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors({ origin: allowedOrigins, credentials: true, optionsSuccessStatus: 200 }));
+app.use(
+  cors({ origin: allowedOrigins, credentials: true, optionsSuccessStatus: 200 })
+);
 app.use(cookieParser());
 app.use(helmet());
 if (process.env.NODE_ENV === "development") {
@@ -35,5 +37,7 @@ router.use("/studies", studyRoutes);
 
 prisma
   .$connect()
-  .then(() => app.listen(PORT, () => console.log(`Server running on port ${PORT}`)))
+  .then(() =>
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+  )
   .catch((error) => console.log(error));
