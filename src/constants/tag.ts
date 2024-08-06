@@ -4,7 +4,7 @@ export type TagOrders = "new" | "old" | "most-notes" | "least-notes";
 
 export const orderCondition: Record<
   TagOrders,
-  Prisma.TagOrderByWithRelationAndSearchRelevanceInput
+  Prisma.TagOrderByWithRelationInput
 > = {
   new: { createdAt: "desc" },
   old: { createdAt: "asc" },
