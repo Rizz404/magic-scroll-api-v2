@@ -13,40 +13,34 @@ import {
   NoteOrders,
   filterCategoryCondition,
   orderCondition,
-} from "../constants/note";
+} from "../constants/note-constant";
 import { getNotesFunction } from "../utils/noteUtils";
 
 export const createNote: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user!;
-    const { studyId, title, content, isPrivate, tags } = req.body;
-    const image = req.file as FileWithFirebase;
+    const { title, content, isPrivate, tags } = req.body;
+    const images = req.files as FilesWithFirebase;
 
-    const isPrivateBool = typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
+    const isPrivateBool =
+      typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
     const tagsParsed = typeof tags === "string" ? JSON.parse(tags) : tags;
-
-    const randomImages = [
-      "https://i.pinimg.com/236x/f6/77/b0/f677b029c3b794a5fada3f884f91522b.jpg",
-      "https://i.pinimg.com/236x/c6/20/50/c62050082632c18cf1c838120f268bfb.jpg",
-      "https://i.pinimg.com/236x/9f/c2/14/9fc214fa94964af4a6728cf3571cd795.jpg",
-      "https://i.pinimg.com/236x/01/dd/0c/01dd0c332d164345145156d464498df1.jpg",
-    ];
-    const randomIndex = Math.floor(Math.random() * randomImages.length);
 
     // * Many to many relation itu otomatis nambakan note ke tag juga
     const newNote = await prisma.note.create({
       data: {
         userId: id,
-        studyId,
         title,
         content,
-        thumbnailImage: image ? image.firebaseUrl : randomImages[randomIndex],
         isPrivate: isPrivateBool ? isPrivateBool : false,
         notePermission: {
           create: { userId: id, permission: "READ_WRITE" },
         },
-        tags: { connect: tagsParsed ? tagsParsed.map((tag: Tag) => ({ id: tag.id })) : [] },
-        noteInteractionCounter: { create: {} },
+        tags: {
+          connect: tagsParsed
+            ? tagsParsed.map((tag: Tag) => ({ id: tag.id }))
+            : [],
+        },
       },
     });
 
@@ -66,13 +60,18 @@ export const addAttachmentsToNote: RequestHandler = async (req, res) => {
       data: { attachments: { push: files.map((file) => file.firebaseUrl) } },
     });
 
-    res.status(201).json({ message: "Add attachments successful", data: addedAttachments });
+    res
+      .status(201)
+      .json({ message: "Add attachments successful", data: addedAttachments });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
   }
 };
 
-export const deleteMultipleAttachmentsInNote: RequestHandler = async (req, res) => {
+export const deleteMultipleAttachmentsInNote: RequestHandler = async (
+  req,
+  res
+) => {
   try {
     const { id } = req.user!;
     const { noteId } = req.params;
@@ -81,7 +80,8 @@ export const deleteMultipleAttachmentsInNote: RequestHandler = async (req, res) 
       where: { id: noteId, userId: id },
     });
 
-    if (!note) return res.status(404).json({ message: "Invalid note or userId" });
+    if (!note)
+      return res.status(404).json({ message: "Invalid note or userId" });
 
     const deletedAttachments = note.attachments.filter((_, index) =>
       attachmentsIndexes.includes(index)
@@ -113,13 +113,22 @@ export const getNotes: RequestHandler = async (req, res) => {
     const category = req.query.category as NoteCategories;
     const order = req.query.order as NoteOrders;
 
-    const categoryAvailable = ["home", "shared", "private", "favorited", "saved", "self"];
+    const categoryAvailable = [
+      "home",
+      "shared",
+      "private",
+      "favorited",
+      "saved",
+      "self",
+    ];
     const orderAvailable = ["new", "old", "best", "worst"];
 
     // * Walaupun userId di function tidak required tetap harus masukin biar tidak error
     const filterByCategory =
-      filterCategoryCondition(userId)[category] || filterCategoryCondition(userId).home;
-    const sortByOrder = orderCondition(userId)[order] || orderCondition(userId).new;
+      filterCategoryCondition(userId)[category] ||
+      filterCategoryCondition(userId).home;
+    const sortByOrder =
+      orderCondition(userId)[order] || orderCondition(userId).new;
 
     const skip = (page - 1) * limit;
     const totalData = await prisma.note.count({ where: filterByCategory });
@@ -160,10 +169,13 @@ export const getNotesByUserId: RequestHandler = async (req, res) => {
     const filterByCategory =
       filterCategoryCondition(currentUserId)[category] ||
       filterCategoryCondition(currentUserId).home;
-    const sortByOrder = orderCondition(currentUserId)[order] || orderCondition(currentUserId).new;
+    const sortByOrder =
+      orderCondition(currentUserId)[order] || orderCondition(currentUserId).new;
 
     const skip = (page - 1) * limit;
-    const totalData = await prisma.note.count({ where: { AND: [{ userId }, filterByCategory] } });
+    const totalData = await prisma.note.count({
+      where: { AND: [{ userId }, filterByCategory] },
+    });
 
     const notes = await getNotesFunction({
       where: { AND: [{ userId }, filterByCategory] },
@@ -194,12 +206,15 @@ export const getNotesByStudyName: RequestHandler = async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 10;
     const order = req.query.order as NoteOrders;
 
-    const sortByOrder = orderCondition(userId)[order] || orderCondition(userId).new;
+    const sortByOrder =
+      orderCondition(userId)[order] || orderCondition(userId).new;
 
     const orderAvailable = ["new", "old", "best"];
 
     const skip = (page - 1) * limit;
-    const totalData = await prisma.note.count({ where: { study: { name: studyName } } });
+    const totalData = await prisma.note.count({
+      where: { study: { name: studyName } },
+    });
 
     const notes = await getNotesFunction({
       where: { study: { name: studyName } },
@@ -228,12 +243,15 @@ export const getNotesByTagName: RequestHandler = async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 10;
     const order = req.query.order as NoteOrders;
 
-    const sortByOrder = orderCondition(userId)[order] || orderCondition(userId).new;
+    const sortByOrder =
+      orderCondition(userId)[order] || orderCondition(userId).new;
 
     const orderAvailable = ["new", "old", "best"];
 
     const skip = (page - 1) * limit;
-    const totalData = await prisma.note.count({ where: { tags: { some: { name: tagName } } } });
+    const totalData = await prisma.note.count({
+      where: { tags: { some: { name: tagName } } },
+    });
 
     const notes = await getNotesFunction({
       where: { tags: { some: { name: tagName } } },
@@ -280,12 +298,19 @@ export const getNoteById: RequestHandler = async (req, res) => {
           },
         },
         notePermission: {
-          include: { user: { select: { id: true, username: true, email: true } } },
+          include: {
+            user: { select: { id: true, username: true, email: true } },
+          },
         },
         ...(userId && {
           noteInteraction: {
             where: { userId: userId },
-            select: { isUpvoted: true, isDownvoted: true, isFavorited: true, isSaved: true },
+            select: {
+              isUpvoted: true,
+              isDownvoted: true,
+              isFavorited: true,
+              isSaved: true,
+            },
           },
         }),
         noteInteractionCounter: {
@@ -312,10 +337,11 @@ export const updateNote: RequestHandler = async (req, res) => {
   try {
     const id = req.user?.id;
     const { noteId } = req.params;
-    const { studyId, title, content, isPrivate, tags } = req.body;
-    const image = req.file as FileWithFirebase;
+    const { title, content, isPrivate, tags } = req.body;
+    const images = req.file as FileWithFirebase;
 
-    const isPrivateBool = typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
+    const isPrivateBool =
+      typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
     const tagsParsed = typeof tags === "string" ? JSON.parse(tags) : tags;
 
     const hasReadAndWritePermission = await prisma.notePermission.findUnique({
@@ -323,16 +349,17 @@ export const updateNote: RequestHandler = async (req, res) => {
     });
 
     if (!hasReadAndWritePermission) {
-      return res.status(403).json({ message: "You don't have permission to update this note" });
+      return res
+        .status(403)
+        .json({ message: "You don't have permission to update this note" });
     }
 
     const updatedNote = await prisma.note.update({
       where: { id: noteId },
       data: {
-        studyId,
         title,
         content,
-        ...(image && { thumbnailImage: image.firebaseUrl }),
+        ...(images && { thumbnailImage: images.firebaseUrl }),
         isPrivate: isPrivateBool,
         tags: { connect: tagsParsed.map((tag: Tag) => ({ id: tag.id })) },
       },
@@ -405,7 +432,10 @@ export const upvoteNote: RequestHandler = async (req, res) => {
         return newInteraction;
       });
 
-      return res.json({ message: "Note upvote successful", data: upvoteStatus });
+      return res.json({
+        message: "Note upvote successful",
+        data: upvoteStatus,
+      });
     }
 
     if (!existingUpvote) {
@@ -419,7 +449,9 @@ export const upvoteNote: RequestHandler = async (req, res) => {
           where: { noteId },
           data: {
             upvotedCount: { increment: 1 },
-            downvotedCount: { decrement: existingVoteInteraction.isDownvoted ? 1 : 0 },
+            downvotedCount: {
+              decrement: existingVoteInteraction.isDownvoted ? 1 : 0,
+            },
           },
         });
 
@@ -442,7 +474,9 @@ export const upvoteNote: RequestHandler = async (req, res) => {
     }
 
     res.json({
-      message: !existingUpvote ? "Note upvote successful" : "Note remove upvote successful",
+      message: !existingUpvote
+        ? "Note upvote successful"
+        : "Note remove upvote successful",
       data: upvoteStatus,
     });
   } catch (error) {
@@ -477,7 +511,10 @@ export const downvoteNote: RequestHandler = async (req, res) => {
         return newInteraction;
       });
 
-      return res.json({ message: "Note downvote successful", data: downvoteStatus });
+      return res.json({
+        message: "Note downvote successful",
+        data: downvoteStatus,
+      });
     }
 
     if (!existingDownvote) {
@@ -491,7 +528,9 @@ export const downvoteNote: RequestHandler = async (req, res) => {
           where: { noteId },
           data: {
             downvotedCount: { increment: 1 },
-            upvotedCount: { decrement: existingVoteInteraction.isUpvoted ? 1 : 0 },
+            upvotedCount: {
+              decrement: existingVoteInteraction.isUpvoted ? 1 : 0,
+            },
           },
         });
 
@@ -514,7 +553,9 @@ export const downvoteNote: RequestHandler = async (req, res) => {
     }
 
     res.json({
-      message: !existingDownvote ? "Note downvote successful" : "Note remove downvote successful",
+      message: !existingDownvote
+        ? "Note downvote successful"
+        : "Note remove downvote successful",
       data: downvoteStatus,
     });
   } catch (error) {
@@ -549,7 +590,10 @@ export const makeNoteFavorite: RequestHandler = async (req, res) => {
         return newInteraction;
       });
 
-      return res.json({ message: "Note favorite successful", data: favoriteStatus });
+      return res.json({
+        message: "Note favorite successful",
+        data: favoriteStatus,
+      });
     }
 
     if (!isNoteFavorite) {
@@ -583,7 +627,9 @@ export const makeNoteFavorite: RequestHandler = async (req, res) => {
     }
 
     res.json({
-      message: !isNoteFavorite ? "Note favorite successful" : "Note remove favorite successful",
+      message: !isNoteFavorite
+        ? "Note favorite successful"
+        : "Note remove favorite successful",
       data: favoriteStatus,
     });
   } catch (error) {
@@ -652,7 +698,9 @@ export const saveNote: RequestHandler = async (req, res) => {
     }
 
     res.json({
-      message: !isNoteSaved ? "Note save successful" : "Note remove save successful",
+      message: !isNoteSaved
+        ? "Note save successful"
+        : "Note remove save successful",
       data: saveStatus,
     });
   } catch (error) {

@@ -2,14 +2,21 @@ import { Tag } from "@prisma/client";
 import { RequestHandler } from "express";
 import { getErrorMessage, getPaginatedResponse } from "../utils/express";
 import prisma from "../config/dbConfig";
-import { TagOrders, orderCondition } from "../constants/tag";
+import { TagOrders, orderCondition } from "../constants/tag-constant";
+
+interface TagReqQuery {
+  page: string;
+  limit: string;
+  name: string;
+  order: TagOrders;
+}
 
 export const createTag: RequestHandler = async (req, res) => {
   try {
-    const { name, description, studyId }: Tag = req.body;
+    const { name, description }: Tag = req.body;
 
     const newTag = await prisma.tag.create({
-      data: { name, description, studyId },
+      data: { name, description },
     });
 
     res.status(201).json({ message: "Create tag successful", data: newTag });
@@ -20,24 +27,22 @@ export const createTag: RequestHandler = async (req, res) => {
 
 export const getTags: RequestHandler = async (req, res) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const order = req.query.order as TagOrders;
+    const { page, limit, order } = req.query as unknown as TagReqQuery;
 
     const orderAvailable = ["new", "old", "most-notes", "least-notes"];
 
-    const skip = (page - 1) * limit;
+    // * Konversi string ke number langsung dengan +
+    const skip = (+page - 1) * +limit;
     const totalData = await prisma.tag.count();
 
     const sortByOrder = orderCondition[order] || orderCondition.new;
 
     const tags = await prisma.tag.findMany({
-      take: limit,
+      take: +limit,
       skip,
       orderBy: sortByOrder,
-      include: { study: { select: { id: true, name: true, image: true } } },
     });
-    const response = getPaginatedResponse(tags, page, limit, totalData, {
+    const response = getPaginatedResponse(tags, +page, +limit, totalData, {
       order: order || "new",
       orderAvailable,
     });
@@ -53,7 +58,6 @@ export const getTagById: RequestHandler = async (req, res) => {
     const { tagId } = req.params;
     const tag = await prisma.tag.findUnique({
       where: { id: tagId },
-      include: { study: { select: { id: true, name: true, image: true } } },
     });
 
     if (!tag) return res.status(404).json({ message: "Tag not found" });
@@ -66,21 +70,20 @@ export const getTagById: RequestHandler = async (req, res) => {
 
 export const searchTagByName: RequestHandler = async (req, res) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 5;
-    const name = req.query.name as string;
+    const { page, limit, name } = req.query as unknown as TagReqQuery;
 
-    const skip = (page - 1) * limit;
-    const totalData = await prisma.tag.count({ where: { name: { contains: name } } });
-
-    const tags = await prisma.tag.findMany({
-      take: limit,
-      skip,
-      where: { name: { contains: name, mode: "insensitive" } },
-      include: { study: { select: { id: true, name: true, image: true } } },
+    const skip = (+page - 1) * +limit;
+    const totalData = await prisma.tag.count({
+      where: { name: { contains: name } },
     });
 
-    const response = getPaginatedResponse(tags, page, limit, totalData);
+    const tags = await prisma.tag.findMany({
+      take: +limit,
+      skip,
+      where: { name: { contains: name, mode: "insensitive" } },
+    });
+
+    const response = getPaginatedResponse(tags, +page, +limit, totalData);
 
     res.json(response);
   } catch (error) {
@@ -88,7 +91,7 @@ export const searchTagByName: RequestHandler = async (req, res) => {
   }
 };
 
-export const updateTag: RequestHandler = async (req, res) => {
+export const updateTagById: RequestHandler = async (req, res) => {
   try {
     const { tagId } = req.params;
     const { name, description }: Tag = req.body;
@@ -99,6 +102,18 @@ export const updateTag: RequestHandler = async (req, res) => {
     });
 
     res.json({ message: "Update tag successful", data: updatedTag });
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const deleteTagById: RequestHandler = async (req, res) => {
+  try {
+    const { tagId } = req.params;
+
+    const deletedTag = await prisma.tag.delete({ where: { id: tagId } });
+
+    res.json({ message: "Delete tag successful", data: deletedTag });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
   }

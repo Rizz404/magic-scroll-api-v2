@@ -1,6 +1,6 @@
 import { RequestHandler } from "express";
 import { getErrorMessage } from "../utils/express";
-import { User, Profile } from "@prisma/client";
+import { User } from "@prisma/client";
 import prisma from "../config/dbConfig";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -17,7 +17,9 @@ export const register: RequestHandler = async (req, res) => {
   try {
     const { username, email, password }: User = req.body;
 
-    const user = await prisma.user.findFirst({ where: { OR: [{ username }, { email }] } });
+    const user = await prisma.user.findFirst({
+      where: { OR: [{ username }, { email }] },
+    });
 
     if (user) return res.status(409).json({ message: "User already exist" });
 
@@ -36,8 +38,12 @@ export const register: RequestHandler = async (req, res) => {
 
 export const loginWithOauth: RequestHandler = async (req, res) => {
   try {
-    const { uid, displayName, email, phoneNumber, photoUrl }: OauthBody = req.body;
-    let user = await prisma.user.findFirst({ where: { email }, include: { profile: true } });
+    const { uid, displayName, email, phoneNumber, photoUrl }: OauthBody =
+      req.body;
+    let user = await prisma.user.findFirst({
+      where: { email },
+      include: { profile: true },
+    });
 
     if (user?.isOauth === false) {
       return res.status(400).json({ message: "User authenticate with jwt" });
@@ -117,7 +123,8 @@ export const login: RequestHandler = async (req, res) => {
 
     const passwordMatch = await bcrypt.compare(password!!, user.password!!);
 
-    if (!passwordMatch) return res.status(400).json({ message: "Invalid password" });
+    if (!passwordMatch)
+      return res.status(400).json({ message: "Invalid password" });
 
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
@@ -143,7 +150,10 @@ export const login: RequestHandler = async (req, res) => {
     const newAccessToken = jwt.sign(userData, process.env.JWT_ACCESS_TOKEN!!, {
       expiresIn: "30m",
     });
-    const newRefreshToken = jwt.sign(updatedUser.id, process.env.JWT_REFRESH_TOKEN!!);
+    const newRefreshToken = jwt.sign(
+      updatedUser.id,
+      process.env.JWT_REFRESH_TOKEN!!
+    );
 
     res.cookie("jwt", newRefreshToken, {
       httpOnly: process.env.NODE_ENV !== "development",
@@ -168,9 +178,13 @@ export const refresh: RequestHandler = async (req, res) => {
 
     if (!refreshToken) return res.status(401).json({ message: "Unauthorized" });
 
-    const decodedUserId = jwt.verify(refreshToken, process.env.JWT_REFRESH_TOKEN!!);
+    const decodedUserId = jwt.verify(
+      refreshToken,
+      process.env.JWT_REFRESH_TOKEN!!
+    );
 
-    if (!decodedUserId) return res.status(401).json({ message: "Invalid token" });
+    if (!decodedUserId)
+      return res.status(401).json({ message: "Invalid token" });
 
     const user = await prisma.user.findUnique({
       where: { id: decodedUserId as string },
