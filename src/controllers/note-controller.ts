@@ -14,17 +14,44 @@ import {
   filterCategoryCondition,
   orderCondition,
 } from "../constants/note-constant";
-import { getNotesFunction } from "../utils/noteUtils";
+
+interface NoteReqQuery {
+  page: string;
+  limit: string;
+  category: NoteCategories;
+  order: NoteOrders;
+}
 
 export const createNote: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user!;
     const { title, content, isPrivate, tags } = req.body;
-    const images = req.files as FilesWithFirebase;
+    const attachments = req.files as FilesWithFirebase;
 
     const isPrivateBool =
       typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
     const tagsParsed = typeof tags === "string" ? JSON.parse(tags) : tags;
+    const attachmentsData = attachments.map(
+      ({
+        fieldname,
+        originalname,
+        mimetype,
+        size,
+        destination,
+        filename,
+        path,
+        firebaseUrl,
+      }) => ({
+        fieldname,
+        originalname,
+        mimetype,
+        size,
+        destination,
+        filename,
+        path,
+        url: firebaseUrl,
+      })
+    );
 
     // * Many to many relation itu otomatis nambakan note ke tag juga
     const newNote = await prisma.note.create({
@@ -41,6 +68,7 @@ export const createNote: RequestHandler = async (req, res) => {
             ? tagsParsed.map((tag: Tag) => ({ id: tag.id }))
             : [],
         },
+        noteAttachments: { createMany: { data: attachmentsData } },
       },
     });
 
@@ -50,76 +78,24 @@ export const createNote: RequestHandler = async (req, res) => {
   }
 };
 
-export const addAttachmentsToNote: RequestHandler = async (req, res) => {
-  try {
-    const { id } = req.user!;
-    const { noteId } = req.params;
-    const files = req.files as FilesWithFirebase;
-    const addedAttachments = await prisma.note.update({
-      where: { id: noteId, userId: id },
-      data: { attachments: { push: files.map((file) => file.firebaseUrl) } },
-    });
-
-    res
-      .status(201)
-      .json({ message: "Add attachments successful", data: addedAttachments });
-  } catch (error) {
-    res.status(500).json({ message: getErrorMessage(error) });
-  }
-};
-
-export const deleteMultipleAttachmentsInNote: RequestHandler = async (
-  req,
-  res
-) => {
-  try {
-    const { id } = req.user!;
-    const { noteId } = req.params;
-    const { attachmentsIndexes }: { attachmentsIndexes: number[] } = req.body;
-    const note = await prisma.note.findUnique({
-      where: { id: noteId, userId: id },
-    });
-
-    if (!note)
-      return res.status(404).json({ message: "Invalid note or userId" });
-
-    const deletedAttachments = note.attachments.filter((_, index) =>
-      attachmentsIndexes.includes(index)
-    );
-    const updatedAttachments = note.attachments.filter(
-      (_, index) => !attachmentsIndexes.includes(index)
-    );
-
-    for (const attachment of deletedAttachments) {
-      await deleteFileFirebase("note", attachment);
-    }
-
-    const updatedNote = await prisma.note.update({
-      where: { id: noteId, userId: id },
-      data: { attachments: updatedAttachments },
-    });
-
-    res.json({ message: "Delete attachments successful", data: updatedNote });
-  } catch (error) {
-    res.status(500).json({ message: getErrorMessage(error) });
-  }
-};
-
 export const getNotes: RequestHandler = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const category = req.query.category as NoteCategories;
-    const order = req.query.order as NoteOrders;
+    const {
+      page = 1,
+      limit = 10,
+      category,
+      order,
+    } = req.query as unknown as NoteReqQuery;
 
     const categoryAvailable = [
       "home",
       "shared",
       "private",
-      "favorited",
-      "saved",
       "self",
+      "deleted",
+      "archived",
+      "favorited",
     ];
     const orderAvailable = ["new", "old", "best", "worst"];
 
@@ -130,18 +106,18 @@ export const getNotes: RequestHandler = async (req, res) => {
     const sortByOrder =
       orderCondition(userId)[order] || orderCondition(userId).new;
 
-    const skip = (page - 1) * limit;
+    const skip = (+page - 1) * +limit;
     const totalData = await prisma.note.count({ where: filterByCategory });
 
-    const notes = await getNotesFunction({
+    const notes = await prisma.note.findMany({
       where: filterByCategory,
       orderBy: sortByOrder,
-      limit,
+      take: +limit,
       skip,
-      userId,
+      include: { noteAttachments: { select: { id: true, url: true } } },
     });
 
-    const response = getPaginatedResponse(notes, page, limit, totalData, {
+    const response = getPaginatedResponse(notes, +page, +limit, totalData, {
       category: category || "home",
       categoryAvailable,
       order: order || "new",
@@ -158,10 +134,12 @@ export const getNotesByUserId: RequestHandler = async (req, res) => {
   try {
     const currentUserId = req.user?.id;
     const { userId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const category = req.query.category as NoteCategories;
-    const order = req.query.order as NoteOrders;
+    const {
+      page = 1,
+      limit = 10,
+      category,
+      order,
+    } = req.query as unknown as NoteReqQuery;
 
     const categoryAvailable = ["home", "shared"];
     const orderAvailable = ["best", "worst", "new", "old"];
@@ -172,59 +150,22 @@ export const getNotesByUserId: RequestHandler = async (req, res) => {
     const sortByOrder =
       orderCondition(currentUserId)[order] || orderCondition(currentUserId).new;
 
-    const skip = (page - 1) * limit;
+    const skip = (+page - 1) * +limit;
     const totalData = await prisma.note.count({
       where: { AND: [{ userId }, filterByCategory] },
     });
 
-    const notes = await getNotesFunction({
+    const notes = await prisma.note.findMany({
       where: { AND: [{ userId }, filterByCategory] },
       orderBy: sortByOrder,
-      limit,
+      take: +limit,
       skip,
-      userId,
+      include: { noteAttachments: { select: { id: true, url: true } } },
     });
 
-    const response = getPaginatedResponse(notes, page, limit, totalData, {
+    const response = getPaginatedResponse(notes, +page, +limit, totalData, {
       category: category || "home",
       categoryAvailable,
-      order: order || "new",
-      orderAvailable,
-    });
-
-    res.json(response);
-  } catch (error) {
-    res.status(500).json({ message: getErrorMessage(error) });
-  }
-};
-
-export const getNotesByStudyName: RequestHandler = async (req, res) => {
-  try {
-    const userId = req.user?.id;
-    const { studyName } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const order = req.query.order as NoteOrders;
-
-    const sortByOrder =
-      orderCondition(userId)[order] || orderCondition(userId).new;
-
-    const orderAvailable = ["new", "old", "best"];
-
-    const skip = (page - 1) * limit;
-    const totalData = await prisma.note.count({
-      where: { study: { name: studyName } },
-    });
-
-    const notes = await getNotesFunction({
-      where: { study: { name: studyName } },
-      orderBy: sortByOrder,
-      limit,
-      skip,
-      userId,
-    });
-
-    const response = getPaginatedResponse(notes, page, limit, totalData, {
       order: order || "new",
       orderAvailable,
     });
@@ -239,29 +180,31 @@ export const getNotesByTagName: RequestHandler = async (req, res) => {
   try {
     const userId = req.user?.id;
     const { tagName } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const order = req.query.order as NoteOrders;
+    const {
+      page = 1,
+      limit = 10,
+      order,
+    } = req.query as unknown as NoteReqQuery;
 
     const sortByOrder =
       orderCondition(userId)[order] || orderCondition(userId).new;
 
     const orderAvailable = ["new", "old", "best"];
 
-    const skip = (page - 1) * limit;
+    const skip = (+page - 1) * +limit;
     const totalData = await prisma.note.count({
       where: { tags: { some: { name: tagName } } },
     });
 
-    const notes = await getNotesFunction({
+    const notes = await prisma.note.findMany({
       where: { tags: { some: { name: tagName } } },
       orderBy: sortByOrder,
-      limit,
+      take: +limit,
       skip,
-      userId,
+      include: { noteAttachments: { select: { id: true, url: true } } },
     });
 
-    const response = getPaginatedResponse(notes, page, limit, totalData, {
+    const response = getPaginatedResponse(notes, +page, +limit, totalData, {
       order: order || "new",
       orderAvailable,
     });
@@ -287,38 +230,18 @@ export const getNoteById: RequestHandler = async (req, res) => {
         ],
       },
       include: {
-        study: true,
         tags: true,
         user: {
           select: {
             username: true,
             email: true,
             isVerified: true,
-            profile: { select: { profileImage: true } },
+            profileImage: true,
           },
         },
         notePermission: {
           include: {
             user: { select: { id: true, username: true, email: true } },
-          },
-        },
-        ...(userId && {
-          noteInteraction: {
-            where: { userId: userId },
-            select: {
-              isUpvoted: true,
-              isDownvoted: true,
-              isFavorited: true,
-              isSaved: true,
-            },
-          },
-        }),
-        noteInteractionCounter: {
-          select: {
-            upvotedCount: true,
-            downvotedCount: true,
-            favoritedCount: true,
-            savedCount: true,
           },
         },
       },
@@ -338,7 +261,6 @@ export const updateNote: RequestHandler = async (req, res) => {
     const id = req.user?.id;
     const { noteId } = req.params;
     const { title, content, isPrivate, tags } = req.body;
-    const images = req.file as FileWithFirebase;
 
     const isPrivateBool =
       typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
@@ -359,13 +281,12 @@ export const updateNote: RequestHandler = async (req, res) => {
       data: {
         title,
         content,
-        ...(images && { thumbnailImage: images.firebaseUrl }),
         isPrivate: isPrivateBool,
         tags: { connect: tagsParsed.map((tag: Tag) => ({ id: tag.id })) },
       },
     });
 
-    if (updatedNote.isPrivate === false) {
+    if (!updatedNote.isPrivate) {
       await prisma.notePermission.deleteMany({
         where: { noteId: updatedNote.id, permission: "READ" },
       });
@@ -377,107 +298,56 @@ export const updateNote: RequestHandler = async (req, res) => {
   }
 };
 
-// type interaction = "upvote" | "downvote" | "favorite" | "save";
-
-// export const noteInteractionHandler = (interaction: interaction) => {
-//   const interactionBoolean: Record<interaction, string> = {
-//     upvote: "isUpvoted",
-//     downvote: "isDownvoted",
-//     favorite: "isFavorited",
-//     save: "isSaved",
-//   };
-
-//   const interactionOperation: RequestHandler = async (req, res) => {
-//     try {
-//       const { id } = req.user!;
-//       const { noteId } = req.params;
-
-//       const existingVoteInteraction = await prisma.noteInteraction.findUnique({
-//         where: { userId_noteId: { userId: id, noteId } },
-//       });
-
-//       const existingState = existingVoteInteraction?.[interactionBoolean[interaction]] === true;
-//     } catch (error) {
-//       res.status(500).json({ message: getErrorMessage(error) });
-//     }
-//   };
-
-//   return interactionOperation;
-// };
-
 export const upvoteNote: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user!;
     const { noteId } = req.params;
 
-    const existingVoteInteraction = await prisma.noteInteraction.findUnique({
+    const noteUpvoted = await prisma.upvotedNote.findUnique({
+      where: { userId_noteId: { userId: id, noteId } },
+    });
+    const noteDownvoted = await prisma.downvoteNote.findUnique({
       where: { userId_noteId: { userId: id, noteId } },
     });
 
-    const existingUpvote = existingVoteInteraction?.isUpvoted === true;
+    let response;
 
-    let upvoteStatus;
-
-    if (!existingVoteInteraction) {
-      upvoteStatus = await prisma.$transaction(async (tx) => {
-        const newInteraction = await tx.noteInteraction.create({
-          data: { userId: id, noteId, isUpvoted: true },
-        });
-
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: { upvotedCount: { increment: 1 } },
-        });
-
-        return newInteraction;
+    if (!noteUpvoted) {
+      response = await prisma.upvotedNote.create({
+        data: { userId: id, noteId },
       });
 
-      return res.json({
-        message: "Note upvote successful",
-        data: upvoteStatus,
-      });
-    }
-
-    if (!existingUpvote) {
-      upvoteStatus = await prisma.$transaction(async (tx) => {
-        const updatedInteraction = await tx.noteInteraction.update({
-          where: { userId_noteId: { userId: id, noteId } },
-          data: { isUpvoted: true, isDownvoted: false },
+      if (noteDownvoted) {
+        await prisma.downvoteNote.delete({ where: { userId: id, noteId } });
+        await prisma.note.update({
+          where: { id: noteId },
+          select: { downvotedCount: true },
+          data: { downvotedCount: { decrement: 1 } },
         });
+      }
 
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: {
-            upvotedCount: { increment: 1 },
-            downvotedCount: {
-              decrement: existingVoteInteraction.isDownvoted ? 1 : 0,
-            },
-          },
-        });
-
-        return updatedInteraction;
+      await prisma.note.update({
+        where: { id: noteId },
+        select: { upvotedCount: true },
+        data: { upvotedCount: { increment: 1 } },
       });
     } else {
-      upvoteStatus = await prisma.$transaction(async (tx) => {
-        const updatedInteraction = await tx.noteInteraction.update({
-          where: { userId_noteId: { userId: id, noteId } },
-          data: { isUpvoted: false },
-        });
+      response = await prisma.upvotedNote.delete({
+        where: { userId: id, noteId },
+      });
 
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: { upvotedCount: { decrement: 1 } },
-        });
-
-        return updatedInteraction;
+      await prisma.note.update({
+        where: { id: noteId },
+        select: { upvotedCount: true },
+        data: { upvotedCount: { decrement: 1 } },
       });
     }
 
     res.json({
-      message: !existingUpvote
-        ? "Note upvote successful"
-        : "Note remove upvote successful",
-      data: upvoteStatus,
+      message: !noteUpvoted
+        ? "Note upvoted successful"
+        : "Remove upvoted from note successful",
+      ...(!noteUpvoted && { data: response }),
     });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
@@ -489,148 +359,51 @@ export const downvoteNote: RequestHandler = async (req, res) => {
     const { id } = req.user!;
     const { noteId } = req.params;
 
-    const existingVoteInteraction = await prisma.noteInteraction.findUnique({
+    const noteDownvoted = await prisma.downvoteNote.findUnique({
+      where: { userId_noteId: { userId: id, noteId } },
+    });
+    const noteUpvoted = await prisma.upvotedNote.findUnique({
       where: { userId_noteId: { userId: id, noteId } },
     });
 
-    const existingDownvote = existingVoteInteraction?.isDownvoted === true;
+    let response;
 
-    let downvoteStatus;
-
-    if (!existingVoteInteraction) {
-      downvoteStatus = await prisma.$transaction(async (tx) => {
-        const newInteraction = await tx.noteInteraction.create({
-          data: { userId: id, noteId, isDownvoted: true },
-        });
-
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: { downvotedCount: { increment: 1 } },
-        });
-
-        return newInteraction;
+    if (!noteDownvoted) {
+      response = await prisma.downvoteNote.create({
+        data: { userId: id, noteId },
       });
 
-      return res.json({
-        message: "Note downvote successful",
-        data: downvoteStatus,
-      });
-    }
-
-    if (!existingDownvote) {
-      downvoteStatus = await prisma.$transaction(async (tx) => {
-        const updatedInteraction = await tx.noteInteraction.update({
-          where: { userId_noteId: { userId: id, noteId } },
-          data: { isDownvoted: true, isUpvoted: false },
+      if (noteUpvoted) {
+        await prisma.upvotedNote.delete({ where: { userId: id, noteId } });
+        await prisma.note.update({
+          where: { id: noteId },
+          select: { upvotedCount: true },
+          data: { upvotedCount: { decrement: 1 } },
         });
+      }
 
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: {
-            downvotedCount: { increment: 1 },
-            upvotedCount: {
-              decrement: existingVoteInteraction.isUpvoted ? 1 : 0,
-            },
-          },
-        });
-
-        return updatedInteraction;
+      await prisma.note.update({
+        where: { id: noteId },
+        select: { downvotedCount: true },
+        data: { downvotedCount: { increment: 1 } },
       });
     } else {
-      downvoteStatus = await prisma.$transaction(async (tx) => {
-        const updatedInteraction = await tx.noteInteraction.update({
-          where: { userId_noteId: { userId: id, noteId } },
-          data: { isDownvoted: false },
-        });
+      response = await prisma.downvoteNote.delete({
+        where: { userId: id, noteId },
+      });
 
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: { downvotedCount: { decrement: 1 } },
-        });
-
-        return updatedInteraction;
+      await prisma.note.update({
+        where: { id: noteId },
+        select: { downvotedCount: true },
+        data: { downvotedCount: { increment: 1 } },
       });
     }
 
     res.json({
-      message: !existingDownvote
-        ? "Note downvote successful"
-        : "Note remove downvote successful",
-      data: downvoteStatus,
-    });
-  } catch (error) {
-    res.status(500).json({ message: getErrorMessage(error) });
-  }
-};
-
-export const makeNoteFavorite: RequestHandler = async (req, res) => {
-  try {
-    const { id } = req.user!;
-    const { noteId } = req.params;
-
-    const existingNoteInteraction = await prisma.noteInteraction.findUnique({
-      where: { userId_noteId: { userId: id, noteId } },
-    });
-
-    const isNoteFavorite = existingNoteInteraction?.isFavorited === true;
-
-    let favoriteStatus;
-
-    if (!existingNoteInteraction) {
-      favoriteStatus = await prisma.$transaction(async (tx) => {
-        const newInteraction = await tx.noteInteraction.create({
-          data: { userId: id, noteId, isFavorited: true },
-        });
-
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: { favoritedCount: { increment: 1 } },
-        });
-
-        return newInteraction;
-      });
-
-      return res.json({
-        message: "Note favorite successful",
-        data: favoriteStatus,
-      });
-    }
-
-    if (!isNoteFavorite) {
-      favoriteStatus = await prisma.$transaction(async (tx) => {
-        const updatedInteraction = await tx.noteInteraction.update({
-          where: { userId_noteId: { userId: id, noteId } },
-          data: { isFavorited: true },
-        });
-
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: { favoritedCount: { increment: 1 } },
-        });
-
-        return updatedInteraction;
-      });
-    } else {
-      favoriteStatus = await prisma.$transaction(async (tx) => {
-        const updatedInteraction = await tx.noteInteraction.update({
-          where: { userId_noteId: { userId: id, noteId } },
-          data: { isFavorited: false },
-        });
-
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: { favoritedCount: { decrement: 1 } },
-        });
-
-        return updatedInteraction;
-      });
-    }
-
-    res.json({
-      message: !isNoteFavorite
-        ? "Note favorite successful"
-        : "Note remove favorite successful",
-      data: favoriteStatus,
+      message: !noteUpvoted
+        ? "Note downvoted successful"
+        : "Remove downvoted from note successful",
+      ...(!noteUpvoted && { data: response }),
     });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
@@ -642,66 +415,37 @@ export const saveNote: RequestHandler = async (req, res) => {
     const { id } = req.user!;
     const { noteId } = req.params;
 
-    const existingNoteInteraction = await prisma.noteInteraction.findUnique({
+    const isNoteSaved = await prisma.savedNote.findUnique({
       where: { userId_noteId: { userId: id, noteId } },
     });
 
-    const isNoteSaved = existingNoteInteraction?.isSaved === true;
-
-    let saveStatus;
-
-    if (!existingNoteInteraction) {
-      saveStatus = await prisma.$transaction(async (tx) => {
-        const newInteraction = await tx.noteInteraction.create({
-          data: { userId: id, noteId, isSaved: true },
-        });
-
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: { savedCount: { increment: 1 } },
-        });
-
-        return newInteraction;
-      });
-
-      return res.json({ message: "Note save successful", data: saveStatus });
-    }
+    let response;
 
     if (!isNoteSaved) {
-      saveStatus = await prisma.$transaction(async (tx) => {
-        const updatedInteraction = await tx.noteInteraction.update({
-          where: { userId_noteId: { userId: id, noteId } },
-          data: { isSaved: true },
-        });
+      response = await prisma.savedNote.create({
+        data: { userId: id, noteId },
+      });
 
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: { savedCount: { increment: 1 } },
-        });
-
-        return updatedInteraction;
+      await prisma.note.update({
+        where: { id: noteId },
+        data: { savedCount: { increment: 1 } },
       });
     } else {
-      saveStatus = await prisma.$transaction(async (tx) => {
-        const updatedInteraction = await tx.noteInteraction.update({
-          where: { userId_noteId: { userId: id, noteId } },
-          data: { isSaved: false },
-        });
+      response = await prisma.savedNote.delete({
+        where: { userId: id, noteId },
+      });
 
-        await tx.noteInteractionCounter.update({
-          where: { noteId },
-          data: { savedCount: { decrement: 1 } },
-        });
-
-        return updatedInteraction;
+      await prisma.note.update({
+        where: { id: noteId },
+        data: { savedCount: { decrement: 1 } },
       });
     }
 
     res.json({
       message: !isNoteSaved
-        ? "Note save successful"
-        : "Note remove save successful",
-      data: saveStatus,
+        ? "Note saved successfully"
+        : "Note unsaved successfully",
+      data: response,
     });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });

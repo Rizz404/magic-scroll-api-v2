@@ -142,13 +142,18 @@ model NotePermission {
 }
 
 model NoteAttachment {
-  id        String   @id @default(cuid()) @db.VarChar(30)
-  noteId    String
-  file      String
-  path      String
-  mimeType  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid()) @db.VarChar(30)
+  noteId       String
+  fieldname    String
+  originalname String
+  mimetype     String
+  size         Int
+  destination  String
+  filename     String
+  path         String
+  url          String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   note Note @relation(fields: [noteId], references: [id])
 }
