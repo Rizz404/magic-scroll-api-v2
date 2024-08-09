@@ -24,7 +24,7 @@ export const register: RequestHandler = async (req, res) => {
     if (user) return res.status(409).json({ message: "User already exist" });
 
     const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(password!!, salt);
+    const hashedPassword = await bcrypt.hash(password!, salt);
 
     const newUser = await prisma.user.create({
       data: { username, email, password: hashedPassword, isOauth: false },
@@ -85,10 +85,10 @@ export const loginWithOauth: RequestHandler = async (req, res) => {
       profileId: user.profile?.id,
     };
 
-    const newAccessToken = jwt.sign(userData, process.env.JWT_ACCESS_TOKEN!!, {
+    const newAccessToken = jwt.sign(userData, process.env.JWT_ACCESS_TOKEN!, {
       expiresIn: "30m",
     });
-    const newRefreshToken = jwt.sign(user.id, process.env.JWT_REFRESH_TOKEN!!);
+    const newRefreshToken = jwt.sign(user.id, process.env.JWT_REFRESH_TOKEN!);
 
     res.cookie("jwt", newRefreshToken, {
       httpOnly: process.env.NODE_ENV !== "development",
@@ -121,7 +121,7 @@ export const login: RequestHandler = async (req, res) => {
       return res.status(404).json({ message: "User authenticate with oauth" });
     }
 
-    const passwordMatch = await bcrypt.compare(password!!, user.password!!);
+    const passwordMatch = await bcrypt.compare(password!, user.password!);
 
     if (!passwordMatch)
       return res.status(400).json({ message: "Invalid password" });
@@ -147,12 +147,12 @@ export const login: RequestHandler = async (req, res) => {
       profileId: updatedUser.profile?.id,
     };
 
-    const newAccessToken = jwt.sign(userData, process.env.JWT_ACCESS_TOKEN!!, {
+    const newAccessToken = jwt.sign(userData, process.env.JWT_ACCESS_TOKEN!, {
       expiresIn: "30m",
     });
     const newRefreshToken = jwt.sign(
       updatedUser.id,
-      process.env.JWT_REFRESH_TOKEN!!
+      process.env.JWT_REFRESH_TOKEN!
     );
 
     res.cookie("jwt", newRefreshToken, {
@@ -180,7 +180,7 @@ export const refresh: RequestHandler = async (req, res) => {
 
     const decodedUserId = jwt.verify(
       refreshToken,
-      process.env.JWT_REFRESH_TOKEN!!
+      process.env.JWT_REFRESH_TOKEN!
     );
 
     if (!decodedUserId)
@@ -203,7 +203,7 @@ export const refresh: RequestHandler = async (req, res) => {
         lastLogin: user.lastLogin,
         profileId: user.profile?.id,
       },
-      process.env.JWT_ACCESS_TOKEN!!,
+      process.env.JWT_ACCESS_TOKEN!,
       { expiresIn: "30m" }
     );
 

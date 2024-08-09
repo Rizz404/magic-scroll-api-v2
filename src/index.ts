@@ -19,7 +19,7 @@ const app = express();
 const router = express.Router();
 
 app.use(bodyParser.json({ limit: "30mb" }));
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 app.use(
   cors({ origin: allowedOrigins, credentials: true, optionsSuccessStatus: 200 })
 );
@@ -28,6 +28,7 @@ app.use(helmet());
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
+
 app.use("/api", router);
 
 router.use("/auth", authRoutes);
