@@ -18,7 +18,7 @@
   "author": "Rizqiansyah Ramadhan",
   "license": "ISC",
   "dependencies": {
-    "@prisma/client": "^5.17.0",
+    "@prisma/client": "^5.18.0",
     "@prisma/extension-accelerate": "^1.1.0",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
@@ -26,7 +26,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "firebase-admin": "^12.3.0",
+    "firebase-admin": "^12.3.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
@@ -35,7 +35,7 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^8.4.1",
-    "@prisma/adapter-pg": "^5.17.0",
+    "@prisma/adapter-pg": "^5.18.0",
     "@types/bcrypt": "^5.0.2",
     "@types/body-parser": "^1.19.5",
     "@types/cookie-parser": "^1.4.7",
@@ -47,7 +47,7 @@
     "@types/node": "^22.1.0",
     "@types/pg": "^8.11.6",
     "nodemon": "^3.1.4",
-    "prisma": "^5.17.0",
+    "prisma": "^5.18.0",
     "ts-node": "^10.9.2",
     "tslib": "^2.6.3",
     "typescript": "^5.5.4"
