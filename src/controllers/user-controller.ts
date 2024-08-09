@@ -23,8 +23,14 @@ interface UsersReqQuery {
 export const getUsers: RequestHandler = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { page, limit, order, isVerified, role, auth } =
-      req.query as unknown as UsersReqQuery;
+    const {
+      page = 1,
+      limit = 10,
+      order,
+      isVerified,
+      role,
+      auth,
+    } = req.query as unknown as UsersReqQuery;
 
     const orderAvailable = ["new", "old"];
     const sortByOrder =
@@ -98,7 +104,11 @@ export const getUserById: RequestHandler = async (req, res) => {
 
 export const searchUserByName: RequestHandler = async (req, res) => {
   try {
-    const { page, limit, username } = req.query as unknown as UsersReqQuery;
+    const {
+      page = 1,
+      limit = 10,
+      username,
+    } = req.query as unknown as UsersReqQuery;
     const skip = (+page - 1) * +limit;
     const totalData = await prisma.user.count({
       where: { username: { contains: username, mode: "insensitive" } },

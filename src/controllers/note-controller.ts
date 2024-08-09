@@ -236,8 +236,8 @@ export const getNoteById: RequestHandler = async (req, res) => {
             username: true,
             email: true,
             isVerified: true,
-            profileImage: true,
           },
+          include: { profile: { select: { profileImage: true } } },
         },
         notePermission: {
           include: {

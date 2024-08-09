@@ -11,17 +11,16 @@ datasource db {
 // * Inget string defaultnya adalah db.text
 
 model User {
-  id           String    @id @default(cuid()) @db.VarChar(30)
-  username     String    @unique @db.VarChar(255)
-  email        String    @unique @db.VarChar(320)
-  password     String?   @db.VarChar(255)
-  role         Roles     @default(USER)
-  isOauth      Boolean
-  lastLogin    DateTime?
-  isVerified   Boolean   @default(false)
-  profileImage String    @default("") @db.VarChar(1024)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id         String    @id @default(cuid()) @db.VarChar(30)
+  username   String    @unique @db.VarChar(255)
+  email      String    @unique @db.VarChar(320)
+  password   String?   @db.VarChar(255)
+  role       Roles     @default(USER)
+  isOauth    Boolean
+  lastLogin  DateTime?
+  isVerified Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   profile        Profile?
   editor         Note?            @relation("EditorRelation")
@@ -37,14 +36,15 @@ model User {
 }
 
 model Profile {
-  id        String   @id @default(cuid()) @db.VarChar(30)
-  userId    String   @unique @db.VarChar(30)
-  firstName String   @default("") @db.VarChar(255)
-  lastName  String   @default("") @db.VarChar(255)
-  age       Int?     @db.SmallInt // * More small but fit for age field (they said)
-  phone     String   @default("") @db.VarChar(15)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid()) @db.VarChar(30)
+  userId       String   @unique @db.VarChar(30)
+  firstName    String   @default("") @db.VarChar(255)
+  lastName     String   @default("") @db.VarChar(255)
+  age          Int?     @db.SmallInt // * More small but fit for age field (they said)
+  phone        String   @default("") @db.VarChar(15)
+  profileImage String   @default("") @db.VarChar(1024)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
 

@@ -27,7 +27,7 @@ export const createTag: RequestHandler = async (req, res) => {
 
 export const getTags: RequestHandler = async (req, res) => {
   try {
-    const { page, limit, order } = req.query as unknown as TagReqQuery;
+    const { page = 1, limit = 10, order } = req.query as unknown as TagReqQuery;
 
     const orderAvailable = ["new", "old", "most-notes", "least-notes"];
 
@@ -70,7 +70,7 @@ export const getTagById: RequestHandler = async (req, res) => {
 
 export const searchTagByName: RequestHandler = async (req, res) => {
   try {
-    const { page, limit, name } = req.query as unknown as TagReqQuery;
+    const { page = 1, limit = 10, name } = req.query as unknown as TagReqQuery;
 
     const skip = (+page - 1) * +limit;
     const totalData = await prisma.tag.count({
