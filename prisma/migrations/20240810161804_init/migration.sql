@@ -14,7 +14,6 @@ CREATE TABLE "User" (
     "isOauth" BOOLEAN NOT NULL,
     "lastLogin" TIMESTAMP(3),
     "isVerified" BOOLEAN NOT NULL DEFAULT false,
-    "profileImage" VARCHAR(1024) NOT NULL DEFAULT '',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -29,6 +28,7 @@ CREATE TABLE "Profile" (
     "lastName" VARCHAR(255) NOT NULL DEFAULT '',
     "age" SMALLINT,
     "phone" VARCHAR(15) NOT NULL DEFAULT '',
+    "profileImage" VARCHAR(1024) NOT NULL DEFAULT '',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -50,7 +50,6 @@ CREATE TABLE "Note" (
     "title" VARCHAR(255) NOT NULL,
     "content" TEXT NOT NULL,
     "isPrivate" BOOLEAN NOT NULL DEFAULT false,
-    "isEdited" BOOLEAN NOT NULL DEFAULT false,
     "isDeleted" BOOLEAN NOT NULL DEFAULT false,
     "isArchived" BOOLEAN NOT NULL DEFAULT false,
     "isFavorited" BOOLEAN NOT NULL DEFAULT false,
@@ -61,6 +60,16 @@ CREATE TABLE "Note" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Note_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "NoteEditor" (
+    "userId" VARCHAR(30) NOT NULL,
+    "noteId" VARCHAR(30) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "NoteEditor_pkey" PRIMARY KEY ("userId","noteId")
 );
 
 -- CreateTable
@@ -105,9 +114,14 @@ CREATE TABLE "NotePermission" (
 CREATE TABLE "NoteAttachment" (
     "id" VARCHAR(30) NOT NULL,
     "noteId" TEXT NOT NULL,
-    "file" TEXT NOT NULL,
+    "fieldname" TEXT NOT NULL,
+    "originalname" TEXT NOT NULL,
+    "mimetype" TEXT NOT NULL,
+    "size" INTEGER NOT NULL,
+    "destination" TEXT NOT NULL,
+    "filename" TEXT NOT NULL,
     "path" TEXT NOT NULL,
-    "mimeType" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -157,6 +171,15 @@ CREATE INDEX "Follow_followerId_followingId_idx" ON "Follow"("followerId", "foll
 
 -- CreateIndex
 CREATE INDEX "Note_userId_title_idx" ON "Note"("userId", "title");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "NoteEditor_userId_key" ON "NoteEditor"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "NoteEditor_noteId_key" ON "NoteEditor"("noteId");
+
+-- CreateIndex
+CREATE INDEX "NoteEditor_userId_noteId_idx" ON "NoteEditor"("userId", "noteId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "UpvotedNote_userId_key" ON "UpvotedNote"("userId");
@@ -217,6 +240,12 @@ ALTER TABLE "Follow" ADD CONSTRAINT "Follow_followingId_fkey" FOREIGN KEY ("foll
 
 -- AddForeignKey
 ALTER TABLE "Note" ADD CONSTRAINT "Note_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NoteEditor" ADD CONSTRAINT "NoteEditor_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NoteEditor" ADD CONSTRAINT "NoteEditor_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "Note"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UpvotedNote" ADD CONSTRAINT "UpvotedNote_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

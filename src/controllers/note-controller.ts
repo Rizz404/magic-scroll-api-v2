@@ -23,6 +23,7 @@ interface NoteReqQuery {
 }
 
 export const createNote: RequestHandler = async (req, res) => {
+  console.log("test");
   try {
     const { id } = req.user!;
     const { title, content, isPrivate, tags } = req.body;
@@ -31,27 +32,28 @@ export const createNote: RequestHandler = async (req, res) => {
     const isPrivateBool =
       typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
     const tagsParsed = typeof tags === "string" ? JSON.parse(tags) : tags;
-    const attachmentsData = attachments.map(
-      ({
-        fieldname,
-        originalname,
-        mimetype,
-        size,
-        destination,
-        filename,
-        path,
-        firebaseUrl,
-      }) => ({
-        fieldname,
-        originalname,
-        mimetype,
-        size,
-        destination,
-        filename,
-        path,
-        url: firebaseUrl,
-      })
-    );
+    const attachmentsData =
+      attachments?.map(
+        ({
+          fieldname,
+          originalname,
+          mimetype,
+          size,
+          destination,
+          filename,
+          path,
+          firebaseUrl,
+        }) => ({
+          fieldname: fieldname || "",
+          originalname: originalname || "",
+          mimetype: mimetype || "",
+          size: size || 0,
+          destination: destination || "",
+          filename: filename || "",
+          path: path || "",
+          url: firebaseUrl,
+        })
+      ) || [];
 
     // * Many to many relation itu otomatis nambakan note ke tag juga
     const newNote = await prisma.note.create({
@@ -68,7 +70,15 @@ export const createNote: RequestHandler = async (req, res) => {
             ? tagsParsed.map((tag: Tag) => ({ id: tag.id }))
             : [],
         },
-        noteAttachments: { createMany: { data: attachmentsData } },
+        noteAttachments: {
+          createMany: {
+            data: attachmentsData,
+          },
+        },
+      },
+      include: {
+        tags: true,
+        noteAttachments: true,
       },
     });
 
@@ -116,6 +126,8 @@ export const getNotes: RequestHandler = async (req, res) => {
       skip,
       include: { noteAttachments: { select: { id: true, url: true } } },
     });
+
+    console.log("test");
 
     const response = getPaginatedResponse(notes, +page, +limit, totalData, {
       category: category || "home",

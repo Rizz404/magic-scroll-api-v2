@@ -11,10 +11,7 @@ import {
   updateNote,
   upvoteNote,
 } from "../controllers/note-controller";
-import {
-  uploadArrayToFirebase,
-  uploadSingleToFirebase,
-} from "../middleware/uploadFile";
+import { uploadArrayToFirebase } from "../middleware/uploadFile";
 
 const router = express.Router();
 

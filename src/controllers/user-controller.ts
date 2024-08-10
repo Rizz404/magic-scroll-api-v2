@@ -291,9 +291,12 @@ export const changePassword: RequestHandler = async (req, res) => {
       return res.status(400).json({ message: "Password doesn't match" });
     }
 
+    const salt = await bcrypt.genSalt();
+    const newHashedPassword = await bcrypt.hash(newPassword, salt);
+
     const updatedPassword = await prisma.user.update({
       where: { id },
-      data: { password: newPassword },
+      data: { password: newHashedPassword },
     });
 
     res.json({ message: "Update password successful", data: updatedPassword });
