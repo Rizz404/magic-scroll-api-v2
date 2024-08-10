@@ -47,7 +47,10 @@ export const addNotePermission: RequestHandler = async (req, res) => {
     }: { noteId: string; userId: string; permission?: Permission } = req.body;
 
     const hasPermission = await prisma.notePermission.findUnique({
-      where: { noteId, userId: id, permission: "READ_WRITE" },
+      where: {
+        userId_noteId: { noteId, userId: id },
+        permission: "READ_WRITE",
+      },
     });
 
     if (!hasPermission) {
@@ -57,7 +60,7 @@ export const addNotePermission: RequestHandler = async (req, res) => {
     }
 
     const isAlreadyContributor = await prisma.notePermission.findUnique({
-      where: { noteId, userId },
+      where: { userId_noteId: { userId, noteId } },
     });
 
     if (isAlreadyContributor) {
@@ -87,7 +90,10 @@ export const changeNotePermission: RequestHandler = async (req, res) => {
     }: { noteId: string; userId: string; permission: Permission } = req.body;
 
     const hasPermission = await prisma.notePermission.findUnique({
-      where: { noteId, userId: id, permission: "READ_WRITE" },
+      where: {
+        userId_noteId: { noteId, userId: id },
+        permission: "READ_WRITE",
+      },
     });
 
     if (!hasPermission) {
@@ -97,7 +103,7 @@ export const changeNotePermission: RequestHandler = async (req, res) => {
     }
 
     const updatedNotePermission = await prisma.notePermission.update({
-      where: { noteId, userId },
+      where: { userId_noteId: { userId, noteId } },
       data: { permission },
     });
 

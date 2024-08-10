@@ -4,7 +4,7 @@
   "description": "It is a notes app",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon --watch .env --watch src/**/*.ts src/index.ts",
+    "dev": "nodemon --watch .env --watch src/**/*.ts src/index.ts --watch prisma/schema.prisma",
     "start": "node dist/index.js",
     "build": "prisma generate && tsc",
     "prisma:migrate": "prisma migrate dev",

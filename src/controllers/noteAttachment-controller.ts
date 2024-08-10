@@ -32,7 +32,10 @@ export const addAttachments: RequestHandler = async (req, res) => {
     );
 
     const hasPermission = await prisma.notePermission.findUnique({
-      where: { noteId, userId: id, permission: "READ_WRITE" },
+      where: {
+        userId_noteId: { noteId, userId: id },
+        permission: "READ_WRITE",
+      },
     });
 
     if (!hasPermission) {
@@ -62,7 +65,10 @@ export const deleteAttachments: RequestHandler = async (req, res) => {
     const { noteId } = req.body;
 
     const hasPermission = await prisma.notePermission.findUnique({
-      where: { noteId, userId: id, permission: "READ_WRITE" },
+      where: {
+        userId_noteId: { noteId, userId: id },
+        permission: "READ_WRITE",
+      },
     });
 
     if (!hasPermission) {

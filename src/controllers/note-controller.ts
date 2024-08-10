@@ -23,7 +23,6 @@ interface NoteReqQuery {
 }
 
 export const createNote: RequestHandler = async (req, res) => {
-  console.log("test");
   try {
     const { id } = req.user!;
     const { title, content, isPrivate, tags } = req.body;
@@ -81,6 +80,8 @@ export const createNote: RequestHandler = async (req, res) => {
         noteAttachments: true,
       },
     });
+
+    console.log(newNote);
 
     res.status(201).json({ message: "Create note successful", data: newNote });
   } catch (error) {
@@ -278,7 +279,7 @@ export const updateNote: RequestHandler = async (req, res) => {
       typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
     const tagsParsed = typeof tags === "string" ? JSON.parse(tags) : tags;
 
-    const hasReadAndWritePermission = await prisma.notePermission.findUnique({
+    const hasReadAndWritePermission = await prisma.notePermission.findFirst({
       where: { noteId, userId: id, permission: "READ_WRITE" },
     });
 
@@ -315,6 +316,7 @@ export const upvoteNote: RequestHandler = async (req, res) => {
     const { id } = req.user!;
     const { noteId } = req.params;
 
+    // * userId_noteId itu maksudnya jika unique lebih dari satu field yang digabung
     const noteUpvoted = await prisma.upvotedNote.findUnique({
       where: { userId_noteId: { userId: id, noteId } },
     });
@@ -330,7 +332,9 @@ export const upvoteNote: RequestHandler = async (req, res) => {
       });
 
       if (noteDownvoted) {
-        await prisma.downvoteNote.delete({ where: { userId: id, noteId } });
+        await prisma.downvoteNote.delete({
+          where: { userId_noteId: { userId: id, noteId } },
+        });
         await prisma.note.update({
           where: { id: noteId },
           select: { downvotedCount: true },
@@ -345,7 +349,7 @@ export const upvoteNote: RequestHandler = async (req, res) => {
       });
     } else {
       response = await prisma.upvotedNote.delete({
-        where: { userId: id, noteId },
+        where: { userId_noteId: { userId: id, noteId } },
       });
 
       await prisma.note.update({
@@ -386,7 +390,9 @@ export const downvoteNote: RequestHandler = async (req, res) => {
       });
 
       if (noteUpvoted) {
-        await prisma.upvotedNote.delete({ where: { userId: id, noteId } });
+        await prisma.upvotedNote.delete({
+          where: { userId_noteId: { userId: id, noteId } },
+        });
         await prisma.note.update({
           where: { id: noteId },
           select: { upvotedCount: true },
@@ -401,7 +407,7 @@ export const downvoteNote: RequestHandler = async (req, res) => {
       });
     } else {
       response = await prisma.downvoteNote.delete({
-        where: { userId: id, noteId },
+        where: { userId_noteId: { userId: id, noteId } },
       });
 
       await prisma.note.update({
@@ -444,7 +450,7 @@ export const saveNote: RequestHandler = async (req, res) => {
       });
     } else {
       response = await prisma.savedNote.delete({
-        where: { userId: id, noteId },
+        where: { userId_noteId: { userId: id, noteId } },
       });
 
       await prisma.note.update({

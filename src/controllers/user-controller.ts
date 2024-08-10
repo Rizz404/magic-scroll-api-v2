@@ -102,6 +102,100 @@ export const getUserById: RequestHandler = async (req, res) => {
   }
 };
 
+export const getFollowings: RequestHandler = async (req, res) => {
+  try {
+    const { id } = req.user!;
+    const {
+      page = 1,
+      limit = 10,
+      order,
+      isVerified,
+    } = req.query as unknown as UsersReqQuery;
+
+    const orderAvailable = ["new", "old"];
+    const sortByOrder = orderCondition(id)[order] || orderCondition(id).new;
+
+    const skip = (+page - 1) * +limit;
+    const followings = await prisma.follow.findMany({
+      where: { followerId: id },
+      select: { followingId: true },
+    });
+
+    const users = await prisma.user.findMany({
+      where: {
+        isVerified: isVerified === "true" ? true : false,
+        id: { in: followings.map(({ followingId }) => followingId) },
+      },
+      omit: { password: true },
+      orderBy: sortByOrder,
+      take: +limit,
+      skip,
+    });
+
+    const response = getPaginatedResponse(
+      users,
+      +page,
+      +limit,
+      followings.length,
+      {
+        order: order || "new",
+        orderAvailable,
+      }
+    );
+
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const getFollowers: RequestHandler = async (req, res) => {
+  try {
+    const { id } = req.user!;
+    const {
+      page = 1,
+      limit = 10,
+      order,
+      isVerified,
+    } = req.query as unknown as UsersReqQuery;
+
+    const orderAvailable = ["new", "old"];
+    const sortByOrder = orderCondition(id)[order] || orderCondition(id).new;
+
+    const skip = (+page - 1) * +limit;
+    const followers = await prisma.follow.findMany({
+      where: { followingId: id },
+      select: { followerId: true },
+    });
+
+    const users = await prisma.user.findMany({
+      where: {
+        isVerified: isVerified === "true" ? true : false,
+        id: { in: followers.map(({ followerId }) => followerId) },
+      },
+      omit: { password: true },
+      orderBy: sortByOrder,
+      take: +limit,
+      skip,
+    });
+
+    const response = getPaginatedResponse(
+      users,
+      +page,
+      +limit,
+      followers.length,
+      {
+        order: order || "new",
+        orderAvailable,
+      }
+    );
+
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
 export const searchUserByName: RequestHandler = async (req, res) => {
   try {
     const {
@@ -333,6 +427,13 @@ export const deleteUser: RequestHandler = async (req, res) => {
       deletedUser = await prisma.user.delete({ where: { id } });
     }
 
+    if (role === "USER") {
+      res.clearCookie("jwt", {
+        httpOnly: true,
+        sameSite: "none",
+        secure: true,
+      });
+    }
     res.json({ message: "Delete user successful", data: deletedUser });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });

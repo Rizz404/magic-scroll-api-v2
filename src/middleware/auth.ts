@@ -27,7 +27,6 @@ export const auth: RequestHandler = async (req, res, next) => {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    console.log("first if");
 
     const accessToken = authHeader.split(" ")[1];
     const decoded = jwt.verify(
@@ -36,7 +35,6 @@ export const auth: RequestHandler = async (req, res, next) => {
     ) as ReqUser;
 
     if (!decoded.id) return res.status(401).json({ message: "Invalid token" });
-    console.log("scond if");
 
     req.user = decoded;
 
@@ -45,7 +43,6 @@ export const auth: RequestHandler = async (req, res, next) => {
         .status(401)
         .json({ message: "Something wrong cause req.user undefined" });
     }
-    console.log("third if");
 
     next();
   } catch (error) {

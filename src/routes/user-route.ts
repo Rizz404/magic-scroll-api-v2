@@ -1,7 +1,7 @@
 import express from "express";
 import {
   changeUserRole,
-  checkUserAvailability,
+  // checkUserAvailability,
   followOrUnfollowUser,
   getUserById,
   getUserProfile,
@@ -11,6 +11,8 @@ import {
   updateUserProfile,
   changePassword,
   deleteUser,
+  getFollowings,
+  getFollowers,
 } from "../controllers/user-controller";
 import { auth } from "../middleware/auth";
 import { uploadSingleToFirebase } from "../middleware/uploadFile";
@@ -30,9 +32,11 @@ router
     }),
     updateUserProfile
   );
-router.post("/check-user-availability", checkUserAvailability);
+// router.post("/check-user-availability", checkUserAvailability);
 router.patch("/follow/:userId", auth, followOrUnfollowUser);
 router.get("/search", searchUserByName);
+router.get("/followings", auth, getFollowings);
+router.get("/followers", auth, getFollowers);
 router.patch(
   "/change-role/:userId",
   auth,
