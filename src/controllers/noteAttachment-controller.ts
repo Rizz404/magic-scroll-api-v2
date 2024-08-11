@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import { FilesWithFirebase, getErrorMessage } from "../utils/express";
 import prisma from "../config/dbConfig";
+import deleteFileFirebase from "../utils/firebase";
 
 export const addAttachments: RequestHandler = async (req, res) => {
   try {
@@ -8,28 +9,29 @@ export const addAttachments: RequestHandler = async (req, res) => {
     const { noteId } = req.params;
     const attachments = req.files as FilesWithFirebase;
 
-    const attachmentsData = attachments.map(
-      ({
-        fieldname,
-        originalname,
-        mimetype,
-        size,
-        destination,
-        filename,
-        path,
-        firebaseUrl,
-      }) => ({
-        fieldname,
-        originalname,
-        mimetype,
-        size,
-        destination,
-        filename,
-        path,
-        url: firebaseUrl,
-        noteId,
-      })
-    );
+    const attachmentsData =
+      attachments?.map(
+        ({
+          fieldname,
+          originalname,
+          mimetype,
+          size,
+          destination,
+          filename,
+          path,
+          firebaseUrl,
+        }) => ({
+          fieldname: fieldname || "",
+          originalname: originalname || "",
+          mimetype: mimetype || "",
+          size: size || 0,
+          destination: destination || "",
+          filename: filename || "",
+          path: path || "",
+          url: firebaseUrl,
+          noteId,
+        })
+      ) || [];
 
     const hasPermission = await prisma.notePermission.findUnique({
       where: {
@@ -81,8 +83,10 @@ export const deleteAttachments: RequestHandler = async (req, res) => {
       where: { id: noteAttachmentId },
     });
 
+    await deleteFileFirebase("note", deletedAttachment.url);
+
     res.json({
-      message: "Add attachments successfull",
+      message: "Delete attachment successfull",
       data: deletedAttachment,
     });
   } catch (error) {

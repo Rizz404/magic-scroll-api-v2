@@ -106,7 +106,6 @@ export const getNotes: RequestHandler = async (req, res) => {
       "self",
       "deleted",
       "archived",
-      "favorited",
     ];
     const orderAvailable = ["new", "old", "best", "worst"];
 
@@ -133,6 +132,90 @@ export const getNotes: RequestHandler = async (req, res) => {
     const response = getPaginatedResponse(notes, +page, +limit, totalData, {
       category: category || "home",
       categoryAvailable,
+      order: order || "new",
+      orderAvailable,
+    });
+
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const getSavedNotes: RequestHandler = async (req, res) => {
+  try {
+    const { id: userId } = req.user!;
+    const {
+      page = 1,
+      limit = 10,
+      order,
+    } = req.query as unknown as NoteReqQuery;
+
+    const orderAvailable = ["new", "old", "best", "worst"];
+
+    const sortByOrder =
+      orderCondition(userId)[order] || orderCondition(userId).new;
+
+    const savedNotes = await prisma.savedNote.findMany({
+      where: { userId },
+      select: { noteId: true },
+    });
+    const skip = (+page - 1) * +limit;
+    const totalData = savedNotes.length;
+
+    const notes = await prisma.note.findMany({
+      where: { id: { in: savedNotes.map(({ noteId }) => noteId) } },
+      orderBy: sortByOrder,
+      take: +limit,
+      skip,
+      include: { noteAttachments: { select: { id: true, url: true } } },
+    });
+
+    console.log("test");
+
+    const response = getPaginatedResponse(notes, +page, +limit, totalData, {
+      order: order || "new",
+      orderAvailable,
+    });
+
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+export const getFavoritedNotes: RequestHandler = async (req, res) => {
+  try {
+    const { id: userId } = req.user!;
+    const {
+      page = 1,
+      limit = 10,
+      order,
+    } = req.query as unknown as NoteReqQuery;
+
+    const orderAvailable = ["new", "old", "best", "worst"];
+
+    const sortByOrder =
+      orderCondition(userId)[order] || orderCondition(userId).new;
+
+    const favoriteNotes = await prisma.favoriteNote.findMany({
+      where: { userId },
+      select: { noteId: true },
+    });
+    const skip = (+page - 1) * +limit;
+    const totalData = favoriteNotes.length;
+
+    const notes = await prisma.note.findMany({
+      where: { id: { in: favoriteNotes.map(({ noteId }) => noteId) } },
+      orderBy: sortByOrder,
+      take: +limit,
+      skip,
+      include: { noteAttachments: { select: { id: true, url: true } } },
+    });
+
+    console.log("test");
+
+    const response = getPaginatedResponse(notes, +page, +limit, totalData, {
       order: order || "new",
       orderAvailable,
     });
@@ -249,8 +332,9 @@ export const getNoteById: RequestHandler = async (req, res) => {
             username: true,
             email: true,
             isVerified: true,
+            // ! kesalahan logika dikit gak ngaruh tadinya mah pake nested include
+            profile: { select: { profileImage: true } },
           },
-          include: { profile: { select: { profileImage: true } } },
         },
         notePermission: {
           include: {
@@ -271,16 +355,24 @@ export const getNoteById: RequestHandler = async (req, res) => {
 // ! Ternyata patch tidak bisa taruh id di body sebagai patokan update
 export const updateNote: RequestHandler = async (req, res) => {
   try {
-    const id = req.user?.id;
+    const { id } = req.user!;
     const { noteId } = req.params;
-    const { title, content, isPrivate, tags } = req.body;
+    const { title, content, isPrivate, tagsToAdd, tagsToDelete } = req.body;
 
     const isPrivateBool =
       typeof isPrivate === "boolean" ? isPrivate : isPrivate === "true";
-    const tagsParsed = typeof tags === "string" ? JSON.parse(tags) : tags;
+    const tagsToAddParsed: { id: string }[] =
+      typeof tagsToAdd === "string" ? JSON.parse(tagsToAdd) : tagsToAdd;
+    const tagsToDeleteParsed: { id: string }[] =
+      typeof tagsToDelete === "string"
+        ? JSON.parse(tagsToDelete)
+        : tagsToDelete;
 
-    const hasReadAndWritePermission = await prisma.notePermission.findFirst({
-      where: { noteId, userId: id, permission: "READ_WRITE" },
+    const hasReadAndWritePermission = await prisma.notePermission.findUnique({
+      where: {
+        userId_noteId: { userId: id, noteId },
+        permission: "READ_WRITE",
+      },
     });
 
     if (!hasReadAndWritePermission) {
@@ -289,13 +381,30 @@ export const updateNote: RequestHandler = async (req, res) => {
         .json({ message: "You don't have permission to update this note" });
     }
 
+    if (tagsToAddParsed && tagsToAddParsed.length > 0) {
+      await prisma.note.update({
+        where: { id: noteId },
+        data: { tags: { connect: tagsToAddParsed } },
+      });
+    }
+
+    if (tagsToDeleteParsed && tagsToDeleteParsed.length > 0) {
+      await prisma.note.update({
+        where: { id: noteId },
+        data: { tags: { disconnect: tagsToDeleteParsed } },
+      });
+    }
+
     const updatedNote = await prisma.note.update({
       where: { id: noteId },
       data: {
         title,
         content,
         isPrivate: isPrivateBool,
-        tags: { connect: tagsParsed.map((tag: Tag) => ({ id: tag.id })) },
+      },
+      include: {
+        tags: true,
+        noteAttachments: { select: { id: true, url: true } },
       },
     });
 
@@ -370,6 +479,7 @@ export const upvoteNote: RequestHandler = async (req, res) => {
   }
 };
 
+// ! Masih salah ini
 export const downvoteNote: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user!;
@@ -461,6 +571,57 @@ export const saveNote: RequestHandler = async (req, res) => {
 
     res.json({
       message: !isNoteSaved
+        ? "Note saved successfully"
+        : "Note unsaved successfully",
+      data: response,
+    });
+  } catch (error) {
+    res.status(500).json({ message: getErrorMessage(error) });
+  }
+};
+
+// ! Still wrong somehow
+export const favoriteNote: RequestHandler = async (req, res) => {
+  try {
+    const { id } = req.user!;
+    const { noteId } = req.params;
+
+    const isNoteFavorited = await prisma.favoriteNote.findUnique({
+      where: { userId_noteId: { userId: id, noteId } },
+    });
+    const favoriteNoteCount = await prisma.favoriteNote.count({
+      where: { userId: id },
+    });
+
+    let response;
+
+    if (!isNoteFavorited) {
+      if (favoriteNoteCount > 5) {
+        const oldestFavoriteNote = await prisma.favoriteNote.findFirstOrThrow({
+          where: { userId: id },
+          orderBy: { createdAt: "asc" },
+        });
+
+        await prisma.favoriteNote.delete({
+          where: {
+            userId_noteId: {
+              userId: oldestFavoriteNote.userId,
+              noteId: oldestFavoriteNote.userId,
+            },
+          },
+        });
+      }
+      response = await prisma.favoriteNote.create({
+        data: { userId: id, noteId },
+      });
+    } else {
+      response = await prisma.favoriteNote.delete({
+        where: { userId_noteId: { userId: id, noteId } },
+      });
+    }
+
+    res.json({
+      message: !isNoteFavorited
         ? "Note saved successfully"
         : "Note unsaved successfully",
       data: response,

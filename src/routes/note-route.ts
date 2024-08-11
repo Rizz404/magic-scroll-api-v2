@@ -3,10 +3,13 @@ import { auth, optionalAuth } from "../middleware/auth";
 import {
   createNote,
   downvoteNote,
+  favoriteNote,
+  getFavoritedNotes,
   getNoteById,
   getNotes,
   getNotesByTagName,
   getNotesByUserId,
+  getSavedNotes,
   saveNote,
   updateNote,
   upvoteNote,
@@ -27,9 +30,12 @@ router
     createNote
   )
   .get(optionalAuth, getNotes);
+router.get("/saved", auth, getSavedNotes);
+router.get("/favorited", auth, getFavoritedNotes);
 router.patch("/upvote/:noteId", auth, upvoteNote);
 router.patch("/downvote/:noteId", auth, downvoteNote);
 router.patch("/save/:noteId", auth, saveNote);
+router.patch("/favorite/:noteId", auth, favoriteNote);
 router.get("/user/:userId", optionalAuth, getNotesByUserId);
 router.get("/tag/:tagName", optionalAuth, getNotesByTagName);
 router

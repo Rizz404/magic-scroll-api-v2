@@ -1,8 +1,7 @@
 import express from "express";
 import { auth } from "../middleware/auth";
 import {
-  addNotePermission,
-  changeNotePermission,
+  upsertNotePermission,
   deleteNotePermission,
   getNotePermissionsFromNote,
 } from "../controllers/notePermission-controller";
@@ -12,8 +11,7 @@ const router = express.Router();
 router
   .route("/note/:noteId")
   .get(auth, getNotePermissionsFromNote)
-  .post(auth, addNotePermission)
-  .patch(auth, changeNotePermission)
+  .patch(auth, upsertNotePermission)
   .delete(auth, deleteNotePermission);
 
 export default router;

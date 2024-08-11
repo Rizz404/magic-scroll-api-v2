@@ -6,8 +6,7 @@ export type NoteCategories =
   | "private"
   | "self"
   | "deleted"
-  | "archived"
-  | "favorited";
+  | "archived";
 export type NoteOrders = "new" | "old" | "best" | "worst";
 
 export const filterCategoryCondition = (
@@ -44,9 +43,6 @@ export const filterCategoryCondition = (
       : { id: "unreachable" },
     archived: currentUserId
       ? { isArchived: true, userId: currentUserId, isDeleted: false }
-      : { id: "unreachable" },
-    favorited: currentUserId
-      ? { isFavorited: true, userId: currentUserId, isDeleted: false }
       : { id: "unreachable" },
     shared: currentUserId
       ? {

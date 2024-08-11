@@ -15,13 +15,22 @@ export const getNotePermissionsFromNote: RequestHandler = async (req, res) => {
       req.query as unknown as NotePermissionReqQuery;
 
     const skip = (+page - 1) * +limit;
-    const totalData = await prisma.notePermission.count();
+    const totalData = await prisma.notePermission.count({ where: { noteId } });
 
     const notePermissions = await prisma.notePermission.findMany({
       where: { noteId },
       take: +limit,
       skip,
-      include: { user: { select: { id: true, username: true, email: true } } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            profile: { select: { profileImage: true } },
+          },
+        },
+      },
     });
 
     const response = getPaginatedResponse(
@@ -37,7 +46,7 @@ export const getNotePermissionsFromNote: RequestHandler = async (req, res) => {
   }
 };
 
-export const addNotePermission: RequestHandler = async (req, res) => {
+export const upsertNotePermission: RequestHandler = async (req, res) => {
   try {
     const { id } = req.user!;
     const { noteId } = req.params;
@@ -56,60 +65,18 @@ export const addNotePermission: RequestHandler = async (req, res) => {
     if (!hasPermission) {
       return res
         .status(400)
-        .json({ message: "You don't have permission to add permission" });
+        .json({ message: "You don't have permission to upsert permission" });
     }
 
-    const isAlreadyContributor = await prisma.notePermission.findUnique({
+    const newNotePermission = await prisma.notePermission.upsert({
       where: { userId_noteId: { userId, noteId } },
-    });
-
-    if (isAlreadyContributor) {
-      return res.status(400).json({ message: "User is already contributor" });
-    }
-
-    const newNotePermission = await prisma.notePermission.create({
-      data: { noteId, userId, permission },
+      create: { noteId, userId, permission },
+      update: { noteId, userId, permission },
     });
 
     res.status(201).json({
       message: "Add user permission successful",
       data: newNotePermission,
-    });
-  } catch (error) {
-    res.status(500).json({ message: getErrorMessage(error) });
-  }
-};
-
-export const changeNotePermission: RequestHandler = async (req, res) => {
-  try {
-    const { id } = req.user!;
-    const { noteId } = req.params;
-    const {
-      userId,
-      permission,
-    }: { noteId: string; userId: string; permission: Permission } = req.body;
-
-    const hasPermission = await prisma.notePermission.findUnique({
-      where: {
-        userId_noteId: { noteId, userId: id },
-        permission: "READ_WRITE",
-      },
-    });
-
-    if (!hasPermission) {
-      return res
-        .status(400)
-        .json({ message: "You don't have permission to add permission" });
-    }
-
-    const updatedNotePermission = await prisma.notePermission.update({
-      where: { userId_noteId: { userId, noteId } },
-      data: { permission },
-    });
-
-    res.status(200).json({
-      message: "Change user permission successful",
-      data: updatedNotePermission,
     });
   } catch (error) {
     res.status(500).json({ message: getErrorMessage(error) });
