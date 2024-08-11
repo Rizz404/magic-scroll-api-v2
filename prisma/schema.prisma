@@ -1,6 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters", "fullTextSearch"] // ! experimental
+  previewFeatures = ["driverAdapters", "fullTextSearch", "omitApi"] // ! experimental
 }
 
 datasource db {
@@ -22,14 +22,18 @@ model User {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  profile         Profile?
-  notes           Note[]
-  notePermission  NotePermission[]
-  noteInteraction NoteInteraction[]
-  followers       Follow[]          @relation("FollowerRelation")
-  followings      Follow[]          @relation("FollowingRelation")
+  profile        Profile?
+  notes          Note[]
+  notePermission NotePermission[]
+  followers      Follow[]         @relation("FollowerRelation")
+  followings     Follow[]         @relation("FollowingRelation")
+  upvotedNotes   UpvotedNote[]
+  downvoteNotes  DownvoteNote[]
+  savedNotes     SavedNote[]
+  NoteEditor     NoteEditor?
+  FavoriteNote   FavoriteNote[]
 
-  @@index([username])
+  @@index([username, email])
 }
 
 model Profile {
@@ -37,116 +41,164 @@ model Profile {
   userId       String   @unique @db.VarChar(30)
   firstName    String   @default("") @db.VarChar(255)
   lastName     String   @default("") @db.VarChar(255)
-  profileImage String   @default("") @db.VarChar(1024)
   age          Int?     @db.SmallInt // * More small but fit for age field (they said)
   phone        String   @default("") @db.VarChar(15)
-  // socialMedias String[]
+  profileImage String   @default("") @db.VarChar(1024)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model Follow {
-  followerId  String @unique @db.VarChar(30)
-  followingId String @unique @db.VarChar(30)
+  followerId  String @db.VarChar(30)
+  followingId String @db.VarChar(30)
 
-  follower  User @relation("FollowerRelation", fields: [followerId], references: [id])
-  following User @relation("FollowingRelation", fields: [followingId], references: [id])
+  follower  User @relation("FollowerRelation", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("FollowingRelation", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@id([followerId, followingId])
+  // * Unique untuk beberapa field secara bersamaan
+  @@unique([followerId, followingId])
   @@index([followerId, followingId])
 }
 
+// ! INGET KALO CONSTRAINT ITU NYAMBUNG KE TABLE YANG LAIN
+// ! HARUS HATI-HATI PAKE unique, index, id, onDelete, dan onUpdate
 model Note {
   id             String   @id @default(cuid()) @db.VarChar(30)
-  userId         String   @db.VarChar(30)
-  studyId        String   @db.VarChar(30)
+  userId         String   @default("deleted user") @db.VarChar(30)
   title          String   @db.VarChar(255)
   content        String
-  thumbnailImage String   @db.VarChar(1024)
-  attachments    String[]
   isPrivate      Boolean  @default(false)
+  isDeleted      Boolean  @default(false)
+  isArchived     Boolean  @default(false)
+  upvotedCount   Int      @default(0)
+  downvotedCount Int      @default(0)
+  savedCount     Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user                   User                    @relation(fields: [userId], references: [id])
-  study                  Study                   @relation(fields: [studyId], references: [id])
-  tags                   Tag[]
-  notePermission         NotePermission[]
-  noteInteraction        NoteInteraction[]
-  noteInteractionCounter NoteInteractionCounter?
+  user            User             @relation(fields: [userId], references: [id], onDelete: SetDefault)
+  noteEditor      NoteEditor?
+  tags            Tag[]
+  notePermission  NotePermission[]
+  upvotedNotes    UpvotedNote[]
+  downvoteNotes   DownvoteNote[]
+  savedNotes      SavedNote[]
+  noteAttachments NoteAttachment[]
+  FavoriteNote    FavoriteNote[]
 
-  @@index([userId, studyId, title])
+  @@index([userId, title])
 }
 
-model NoteInteraction {
-  userId      String  @db.VarChar(30)
-  noteId      String  @db.VarChar(30)
-  isUpvoted   Boolean @default(false)
-  isDownvoted Boolean @default(false)
-  isFavorited Boolean @default(false)
-  isSaved     Boolean @default(false)
+model NoteEditor {
+  userId    String   @unique @db.VarChar(30)
+  noteId    String   @unique @db.VarChar(30)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
-  note Note @relation(fields: [noteId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
 
   @@id([userId, noteId])
   @@index([userId, noteId])
 }
 
-model NoteInteractionCounter {
-  noteId         String @unique @db.VarChar(30)
-  upvotedCount   Int    @default(0)
-  downvotedCount Int    @default(0)
-  favoritedCount Int    @default(0)
-  savedCount     Int    @default(0)
+// * Karena tidak ada operasi update makanya ngak ada updatedAt
+model UpvotedNote {
+  userId    String   @db.VarChar(30)
+  noteId    String   @db.VarChar(30)
+  createdAt DateTime @default(now())
 
-  note Note @relation(fields: [noteId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
 
-  @@id([noteId])
-  @@index([noteId])
+  @@id([userId, noteId])
+  @@unique([userId, noteId])
+  @@index([userId, noteId])
+}
+
+model DownvoteNote {
+  userId    String   @db.VarChar(30)
+  noteId    String   @db.VarChar(30)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@id([userId, noteId])
+  @@unique([userId, noteId])
+  @@index([userId, noteId])
+}
+
+model SavedNote {
+  userId    String   @db.VarChar(30)
+  noteId    String   @db.VarChar(30)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@id([userId, noteId])
+  @@unique([userId, noteId])
+  @@index([userId, noteId])
+}
+
+model FavoriteNote {
+  userId    String   @db.VarChar(30)
+  noteId    String   @db.VarChar(30)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@id([userId, noteId])
+  @@unique([userId, noteId])
+  @@index([userId, noteId])
 }
 
 model NotePermission {
-  id         String     @id @default(cuid()) @db.VarChar(30)
-  noteId     String     @unique @db.VarChar(30)
   userId     String     @db.VarChar(30)
+  noteId     String     @db.VarChar(30)
   permission Permission @default(READ)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
-  note Note @relation(fields: [noteId], references: [id])
-  user User @relation(fields: [userId], references: [id])
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([noteId])
+  @@id([userId, noteId])
+  @@unique([userId, noteId])
+  @@index([userId, noteId])
 }
 
-model Study {
-  id          String   @id @default(cuid()) @db.VarChar(30)
-  name        String   @unique @db.VarChar(255)
-  description String
-  image       String   @default("https://i.pinimg.com/236x/a2/6a/27/a26a27a5ff6a2cb80d5b872a73d1413b.jpg")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model NoteAttachment {
+  id           String   @id @default(cuid()) @db.VarChar(30)
+  noteId       String
+  fieldname    String
+  originalname String
+  mimetype     String
+  size         Int
+  destination  String
+  filename     String
+  path         String
+  url          String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  notes Note[]
-  tag   Tag[]
-
-  @@index([name])
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
 }
 
 model Tag {
   id          String   @id @default(cuid()) @db.VarChar(30)
   name        String   @unique @db.VarChar(255)
-  studyId     String   @db.VarChar(30)
   description String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  study Study  @relation(fields: [studyId], references: [id])
   notes Note[]
 
   @@index([name])

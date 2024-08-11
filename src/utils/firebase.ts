@@ -3,7 +3,10 @@ import { getErrorMessage } from "./express";
 
 type FolderAvailable = "user" | "note" | "study";
 
-const deleteFileFirebase = async (folderName: FolderAvailable, fileUrl: string): Promise<void> => {
+const deleteFileFirebase = async (
+  folderName: FolderAvailable,
+  fileUrl: string
+): Promise<void> => {
   try {
     const fileNameRegex = /([^/]+?)\?/; // * Regex to untuk ekstrak nama filenya
     const fileName = fileUrl.match(fileNameRegex)?.[1];
@@ -29,7 +32,7 @@ const deleteFileFirebase = async (folderName: FolderAvailable, fileUrl: string):
 
 export default deleteFileFirebase;
 
-const getFolderNameFromExtension = (extension: string): string => {
+function getFolderNameFromExtension(extension: string): string {
   const extensionList: { [key: string]: string } = {
     jpg: "images",
     jpeg: "images",
@@ -60,4 +63,4 @@ const getFolderNameFromExtension = (extension: string): string => {
   };
 
   return extensionList[extension] || "others";
-};
+}
