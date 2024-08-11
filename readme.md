@@ -19,6 +19,8 @@
   - [Rute Lampiran Catatan](#rute-lampiran-catatan)
   - [Rute Catatan](#rute-catatan)
   - [Rute Autentikasi](#rute-autentikasi)
+  - [Paginasi dan Informasi Tambahan](#paginasi-dan-informasi-tambahan)
+    - [Catatan:](#catatan)
 
 
 ## Instalasi dan Konfigurasi
@@ -246,3 +248,33 @@ URL Dasar: `/api/auth`
 | POST   | `/oauth`    | Masuk dengan OAuth            | Tidak ada   |
 | POST   | `/logout`   | Keluar pengguna               | Tidak ada   |
 | POST   | `/refresh`  | Memperbarui token autentikasi | Tidak ada   |
+
+## Paginasi dan Informasi Tambahan
+
+Untuk endpoint yang mengembalikan banyak data, API mengimplementasikan sistem paginasi dan mungkin menyertakan informasi tambahan. Berikut adalah struktur umum respons untuk endpoint tersebut:
+
+```json
+{
+  "data": [], // Array berisi data yang diminta
+  "paginationState": {
+    "totalData": 0, // Total jumlah data
+    "dataPerpage": 10, // Jumlah data per halaman
+    "currentPage": 1, // Halaman saat ini
+    "totalPages": 1, // Total jumlah halaman
+    "startIndex": 1, // Indeks awal data pada halaman ini
+    "endIndex": 0, // Indeks akhir data pada halaman ini
+    "hasNextPage": false, // Apakah ada halaman selanjutnya
+    "hasPrevPage": false // Apakah ada halaman sebelumnya
+  },
+  "additionalInfo": { // Informasi tambahan (opsional, tergantung endpoint)
+    "category": "home",
+    "categoryAvailable": ["home", "shared", "private", "self", "deleted", "archived"],
+    "order": "new",
+    "orderAvailable": ["new", "old", "best", "worst"]
+  }
+}
+```
+
+### Catatan:
+- `paginationState` selalu disertakan dalam respons untuk endpoint yang mengembalikan data banyak (yang biasanya berbentuk arrays).
+- `additionalInfo` mungkin disertakan tergantung pada endpoint spesifik. Informasi ini dapat mencakup kategori yang tersedia, opsi pengurutan, atau metadata lainnya yang relevan dengan permintaan.
