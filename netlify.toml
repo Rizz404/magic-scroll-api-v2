@@ -1,0 +1,10 @@
+[build]
+  functions = "dist/netlify/functions"
+
+[functions]
+  included_files = ["types/**/*"]
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
